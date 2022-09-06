@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<schemalist>
+    <schema id="com.realmicrosft.h2eck" path="/com/realmicrosft/h2eck/">
+        <key name="data-location" type="s">
+            <default>'/opt/huskyTech2/base'</default>
+            <summary>location of data files for the game engine</summary>
+            <description>usually the "base" directory of ht2, should contain your models, textures, etc.</description>
+        </key>
+        <key name="binary-location" type="s">
+            <default>'/opt/huskyTech2/huskyTech2'</default>
+            <summary>location of the game engine binary</summary>
+            <description>usually the "huskyTech2" executable</description>
+        </key>
+        <key name="tools-location" type="s">
+            <default>'/opt/huskyTech2/tools'</default>
+            <summary>location of the game engine tools</summary>
+            <description>usually the "tools" directory of ht2, should contain the "mapc" tool</description>
+        </key>
+    </schema>
+</schemalist>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<interface>
+    <template class="h2eckWindow" parent="GtkApplicationWindow">
+        <property name="title">h2eck</property>
+        <child>
+            <object class="GtkStack" id="stack">
+            </object>
+        </child>
+    </template>
+</interface>
