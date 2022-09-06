@@ -1,8 +1,8 @@
-mod mesh;
-mod helpers;
-mod types;
-mod shader;
-mod camera;
+pub mod mesh;
+pub mod helpers;
+pub mod types;
+pub mod shader;
+pub mod camera;
 
 use std::collections::HashMap;
 use dae_parser::Document;
@@ -12,6 +12,7 @@ use crate::renderer::camera::Camera;
 use crate::renderer::mesh::Mesh;
 use crate::renderer::shader::Shader;
 use crate::renderer::types::*;
+use crate::worldmachine::{World, WorldMachine};
 
 pub struct H2eckRenderer {
     pub state: H2eckState,
@@ -72,33 +73,27 @@ impl H2eckRenderer {
                  Option::None,
                  &self.shaders.as_mut().unwrap().get("red").unwrap().clone(), self)
             .expect("failed to create ht2 mesh");
-        ht2_mesh.position = Vec3::new(0.0, 0.25, 4.0);
+        //ht2_mesh.position = Vec3::new(0.0, 0.25, 4.0);
         self.meshes.as_mut().unwrap().insert("ht2".to_string(), ht2_mesh);
     }
 
     // should be called upon the render action of our GtkGLArea
-    pub fn render(&mut self) {
+    pub fn render(&mut self, worldmachine: &mut WorldMachine) {
         // todo! this is a hack
         if !self.initialised {
             self.initialise(800, 600);
+            debug!("initialised renderer");
+            worldmachine.initialise();
+            debug!("initialised worldmachine");
             self.initialised = true;
         }
 
         unsafe {
             // set the clear color to black
-            glClearColor(1.0, 0.0, 1.0, 1.0);
+            glClearColor(0.1, 0.0, 0.1, 1.0);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            debug!("meshes: {:?}", self.meshes);
-
-            if self.meshes.is_some() && self.meshes.clone().unwrap().contains_key("ht2") {
-                debug!("rendering ht2");
-                let shaders = self.shaders.clone().unwrap();
-                let meshes = self.meshes.clone().unwrap();
-                let shader = shaders.get("red").unwrap();
-                let mesh = meshes.get("ht2").unwrap();
-                mesh.render(self, shader, false);
-            }
+            worldmachine.render(self);
 
             glFlush();
         }

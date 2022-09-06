@@ -1,0 +1,119 @@
+use std::any::Any;
+use gfx_maths::*;
+use crate::renderer::mesh::Mesh;
+use crate::worldmachine::ecs::{Component, ComponentType, Parameter};
+use super::components::*;
+
+// transform
+
+impl Component for Transform {
+    fn get_id(&self) -> u32 {
+        self.component_type.id
+    }
+
+    fn get_name(&self) -> String {
+        self.component_type.name.clone()
+    }
+
+    fn get_type(&self) -> ComponentType {
+        self.component_type.clone()
+    }
+
+    fn get_parameters(&self) -> Vec<Parameter> {
+        vec![
+            Parameter::new("position", Box::new(self.position)),
+            Parameter::new("rotation", Box::new(self.rotation)),
+            Parameter::new("scale", Box::new(self.scale)),
+        ]
+    }
+
+    fn get_parameter(&self, parameter_name: &str) -> Option<Parameter> {
+        match parameter_name {
+            "position" => Some(Parameter::new("position", Box::new(self.position))),
+            "rotation" => Some(Parameter::new("rotation", Box::new(self.rotation))),
+            "scale" => Some(Parameter::new("scale", Box::new(self.scale))),
+            _ => None,
+        }
+    }
+
+    fn set_parameter(&mut self, parameter_name: &str, parameter: Box<dyn Any>) {
+        match parameter_name {
+            "position" => {
+                if let Ok(value) = parameter.downcast::<Vec3>() {
+                    self.position = *value;
+                }
+            }
+            "rotation" => {
+                if let Ok(value) = parameter.downcast::<Quaternion>() {
+                    self.rotation = *value;
+                }
+            }
+            "scale" => {
+                if let Ok(value) = parameter.downcast::<Vec3>() {
+                    self.scale = *value;
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+impl Default for Transform {
+    fn default() -> Self {
+        Self {
+            position: Vec3::new(0.0, 0.0, 0.0),
+            rotation: Quaternion::identity(),
+            scale: Vec3::new(1.0, 1.0, 1.0),
+            component_type: COMPONENT_TYPE_TRANSFORM.clone(),
+        }
+    }
+}
+
+// meshrenderer
+
+impl Component for MeshRenderer {
+    fn get_id(&self) -> u32 {
+        self.component_type.id
+    }
+
+    fn get_name(&self) -> String {
+        self.component_type.name.clone()
+    }
+
+    fn get_type(&self) -> ComponentType {
+        self.component_type.clone()
+    }
+
+    fn get_parameters(&self) -> Vec<Parameter> {
+        vec![
+            Parameter::new("mesh", Box::new(self.mesh.clone())),
+        ]
+    }
+
+    fn get_parameter(&self, parameter_name: &str) -> Option<Parameter> {
+        match parameter_name {
+            "mesh" => Some(Parameter::new("mesh", Box::new(self.mesh.clone()))),
+            _ => None,
+        }
+    }
+
+    fn set_parameter(&mut self, parameter_name: &str, value: Box<dyn Any>) {
+        match parameter_name {
+            "mesh" => {
+                if let Ok(value) = value.downcast::<String>() {
+                    self.mesh = *value.clone();
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+impl Default for MeshRenderer {
+    fn default() -> Self {
+        Self {
+            mesh: String::new(),
+            component_type: COMPONENT_TYPE_MESH_RENDERER.clone(),
+        }
+    }
+}

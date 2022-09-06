@@ -15,8 +15,4 @@ impl h2eckWindow {
     pub fn new(app: &Application) -> Self {
         Object::new(&[("application", app)]).expect("failed to create h2eckWindow")
     }
-
-    pub fn render(&self) {
-        (*self.imp().renderer.lock().unwrap()).render();
-    }
 }

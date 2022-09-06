@@ -12,6 +12,7 @@ use crate::h2eck_window::{about_window, h2eckWindow};
 
 pub mod h2eck_window;
 pub mod renderer;
+pub mod worldmachine;
 
 const APP_ID: &str = "com.realmicrosoft.h2eck";
 

@@ -12,12 +12,14 @@ use crate::gio::glib::clone;
 use crate::gio::SimpleAction;
 use crate::h2eck_window::editor::Editor;
 use crate::renderer::H2eckRenderer;
+use crate::worldmachine::WorldMachine;
 
 
 #[derive(CompositeTemplate, Default)]
 #[template(resource = "/com/realmicrosoft/h2eck/window.ui")]
 pub struct h2eckWindow {
     pub renderer: Arc<Mutex<H2eckRenderer>>,
+    pub worldmachine: Arc<Mutex<WorldMachine>>,
     #[template_child]
     pub stack: TemplateChild<gtk::Stack>,
 }
@@ -50,15 +52,17 @@ impl h2eckWindow {
         let editor_obj = Editor::new();
 
         let renderer = obj.clone().imp().renderer.clone();
+        let worldmachine = obj.clone().imp().worldmachine.clone();
 
         // connect render signal
         editor_obj.imp().main_view.connect_render(move |_, ctx| {
             {
                 let mut renderer_inner = renderer.lock().unwrap();
-                println!("rendering");
-                renderer_inner.render();
+                let mut worldmachine_inner = worldmachine.lock().unwrap();
+                renderer_inner.render(&mut worldmachine_inner);
                 // force unlock
                 drop(renderer_inner);
+                drop(worldmachine_inner);
             }
             Inhibit(false)
         });
