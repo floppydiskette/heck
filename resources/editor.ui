@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<interface>
+    <template class="Editor" parent="GtkBox">
+        <property name="name">editor</property>
+        <property name="orientation">vertical</property>
+        <property name="spacing">6</property>
+        <property name="halign">center</property>
+        <property name="valign">center</property>
+        <child>
+            <object class="GtkGLArea" id="main_view">
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="width-request">800</property>
+                <property name="height-request">600</property>
+            </object>
+        </child>
+    </template>
+</interface>

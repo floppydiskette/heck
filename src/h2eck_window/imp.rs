@@ -1,12 +1,21 @@
+use std::sync::{Arc, Mutex};
 use glib::subclass::InitializingObject;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use gtk::{glib, Button, CompositeTemplate};
+use gtk::{glib, Button, CompositeTemplate, PopoverMenuBar, GLArea, Inhibit};
+use gtk::ffi::*;
+use gtk::gio::Menu;
+use gtk::glib::translate::ToGlibPtr;
+use crate::gio::glib::clone;
+use crate::gio::SimpleAction;
+use crate::h2eck_window::editor::Editor;
+use crate::renderer::H2eckRenderer;
 
 
 #[derive(CompositeTemplate, Default)]
 #[template(resource = "/com/realmicrosoft/h2eck/window.ui")]
 pub struct h2eckWindow {
+    pub renderer: Arc<Mutex<H2eckRenderer>>,
     #[template_child]
     pub stack: TemplateChild<gtk::Stack>,
 }
@@ -30,6 +39,41 @@ impl ObjectImpl for h2eckWindow {
     fn constructed(&self, obj: &Self::Type) {
         // call "constructed" on parent
         self.parent_constructed(obj);
+        self.setup(obj);
+    }
+}
+
+impl h2eckWindow {
+    pub fn setup(&self, obj: &<h2eckWindow as ObjectSubclass>::Type) {
+        let editor_obj = Editor::new();
+
+        /*
+        // connect realize signal
+        editor_obj.imp().main_view.connect_realize(move |widget| {
+            if widget.is_realized() {
+                widget.make_current();
+            }
+            // print errors
+            if let Some(err) = widget.error() {
+                println!("Error: {}", err);
+            }
+        });
+         */
+
+        let renderer = obj.clone().imp().renderer.clone();
+
+        // connect render signal
+        editor_obj.imp().main_view.connect_render(move |_, ctx| {
+            println!("rendering");
+            let renderer = renderer.lock().unwrap();
+            renderer.render();
+            Inhibit(false)
+        });
+
+        editor_obj.show();
+
+        self.stack.add_child(&editor_obj);
+        self.stack.set_visible_child(&editor_obj);
     }
 }
 

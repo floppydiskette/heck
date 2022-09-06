@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<interface>
+    <template class="h2eckAbout" parent="GtkApplicationWindow">
+        <property name="title">about h2eck</property>
+        <property name="default-width">400</property>
+        <property name="default-height">300</property>
+        <child>
+        </child>
+    </template>
+</interface>

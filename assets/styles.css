@@ -1,0 +1,7 @@
+popover contents {
+  border-radius: 0;
+}
+
+popover contents * {
+  border-radius: 0;
+}
