@@ -7,6 +7,12 @@ edition = "2021"
 
 [dependencies]
 gtk = { version = "0.4", package = "gtk4" }
+dae-parser = "0.8.7"
+gfx-maths = "0.2.8"
+png = "0.17.5"
+log = "0.4.0"
+env_logger = "0.8.4"
+lazy_static = "1.4.0"
 
 [build-dependencies]
 gtk = { version = "0.4", package = "gtk4" }

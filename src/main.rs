@@ -1,3 +1,8 @@
+#[macro_use]
+extern crate log;
+#[macro_use]
+extern crate lazy_static;
+
 use gtk::prelude::*;
 use gtk::{Application, ApplicationWindow, gio, show_about_dialog};
 use gio::prelude::*;
@@ -11,6 +16,8 @@ pub mod renderer;
 const APP_ID: &str = "com.realmicrosoft.h2eck";
 
 fn main() {
+    // initialise env logger
+    env_logger::init();
     // register resources
     gio::resources_register_include!("ct.gresource")
         .expect("failed to register ui resources");

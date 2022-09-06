@@ -1,3 +1,4 @@
+use std::ffi::CString;
 use std::sync::{Arc, Mutex};
 use glib::subclass::InitializingObject;
 use gtk::prelude::*;
@@ -6,6 +7,7 @@ use gtk::{glib, Button, CompositeTemplate, PopoverMenuBar, GLArea, Inhibit};
 use gtk::ffi::*;
 use gtk::gio::Menu;
 use gtk::glib::translate::ToGlibPtr;
+use gtk::glib::Type;
 use crate::gio::glib::clone;
 use crate::gio::SimpleAction;
 use crate::h2eck_window::editor::Editor;
@@ -47,26 +49,17 @@ impl h2eckWindow {
     pub fn setup(&self, obj: &<h2eckWindow as ObjectSubclass>::Type) {
         let editor_obj = Editor::new();
 
-        /*
-        // connect realize signal
-        editor_obj.imp().main_view.connect_realize(move |widget| {
-            if widget.is_realized() {
-                widget.make_current();
-            }
-            // print errors
-            if let Some(err) = widget.error() {
-                println!("Error: {}", err);
-            }
-        });
-         */
-
         let renderer = obj.clone().imp().renderer.clone();
 
         // connect render signal
         editor_obj.imp().main_view.connect_render(move |_, ctx| {
-            println!("rendering");
-            let renderer = renderer.lock().unwrap();
-            renderer.render();
+            {
+                let mut renderer_inner = renderer.lock().unwrap();
+                println!("rendering");
+                renderer_inner.render();
+                // force unlock
+                drop(renderer_inner);
+            }
             Inhibit(false)
         });
 

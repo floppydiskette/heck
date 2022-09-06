@@ -3,15 +3,79 @@
     <template class="Editor" parent="GtkBox">
         <property name="name">editor</property>
         <property name="orientation">vertical</property>
-        <property name="spacing">6</property>
-        <property name="halign">center</property>
-        <property name="valign">center</property>
+        <property name="spacing">0</property>
+        <property name="halign">fill</property>
+        <property name="valign">fill</property>
         <child>
-            <object class="GtkGLArea" id="main_view">
-                <property name="visible">True</property>
-                <property name="can-focus">True</property>
-                <property name="width-request">800</property>
-                <property name="height-request">600</property>
+            <object class="GtkBox" id="toolbar">
+                <property name="orientation">horizontal</property>
+                <property name="spacing">6</property>
+                <property name="halign">left</property>
+                <property name="valign">center</property>
+                <child>
+                    <object class="GtkButton" id="new">
+                        <property name="label">New</property>
+                    </object>
+                </child>
+                <child>
+                    <object class="GtkButton" id="open">
+                        <property name="label">Open</property>
+                    </object>
+                </child>
+                <child>
+                    <object class="GtkButton" id="save">
+                        <property name="label">Save</property>
+                    </object>
+                </child>
+                <child>
+                    <object class="GtkButton" id="save_as">
+                        <property name="label">Save As</property>
+                    </object>
+                </child>
+            </object>
+        </child>
+        <child>
+            <object class="GtkBox" id="main_editor">
+                <property name="orientation">horizontal</property>
+                <property name="spacing">6</property>
+                <child>
+                    <object class="GtkBox" id="browser_and_viewer">
+                        <property name="orientation">vertical</property>
+                        <property name="spacing">6</property>
+                        <child>
+                            <object class="GtkTreeView" id="scene_browser">
+                                <property name="width_request">200</property>
+                            </object>
+                        </child>
+                        <child>
+                            <object class="GtkGLArea" id="main_view">
+                                <property name="width_request">800</property>
+                                <property name="height_request">600</property>
+                                <property name="halign">fill</property>
+                                <property name="valign">fill</property>
+                                <property name="has_depth_buffer">True</property>
+                                <property name="has_stencil_buffer">True</property>
+                                <property name="auto_render">True</property>
+                            </object>
+                        </child>
+                    </object>
+                </child>
+                <child>
+                    <object class="GtkBox" id="inspector">
+                        <property name="orientation">vertical</property>
+                        <property name="spacing">6</property>
+                        <child>
+                            <object class="GtkLabel" id="inspector_label">
+                                <property name="label">Inspector</property>
+                            </object>
+                        </child>
+                        <child>
+                            <object class="GtkTreeView" id="inspector_tree">
+
+                            </object>
+                        </child>
+                    </object>
+                </child>
             </object>
         </child>
     </template>
