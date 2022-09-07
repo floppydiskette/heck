@@ -5,6 +5,7 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{glib, Button, CompositeTemplate, PopoverMenuBar, GLArea, Inhibit};
 use gtk::ffi::*;
+use gtk::gdk::ffi::GdkFrameClock;
 use gtk::gio::Menu;
 use gtk::glib::translate::ToGlibPtr;
 use gtk::glib::Type;
@@ -54,18 +55,39 @@ impl h2eckWindow {
         let renderer = obj.clone().imp().renderer.clone();
         let worldmachine = obj.clone().imp().worldmachine.clone();
 
+
         // connect render signal
-        editor_obj.imp().main_view.connect_render(move |_, ctx| {
-            {
-                let mut renderer_inner = renderer.lock().unwrap();
-                let mut worldmachine_inner = worldmachine.lock().unwrap();
-                renderer_inner.render(&mut worldmachine_inner);
-                // force unlock
-                drop(renderer_inner);
-                drop(worldmachine_inner);
-            }
+        editor_obj.imp().main_view.connect_render(move |a, b| {
+            let mut inner_renderer = renderer.lock().unwrap();
+            let mut inner_worldmachine = worldmachine.lock().unwrap();
+            inner_renderer.render(&mut inner_worldmachine);
             Inhibit(false)
         });
+
+        // tell glib to redraw the editor every frame
+        editor_obj.imp().main_view.connect_realize(move |a| {
+            let frame_clock = a.frame_clock().unwrap();
+            frame_clock.connect_update(clone!(@weak a => move |_| {
+                a.queue_draw();
+            }));
+            frame_clock.begin_updating();
+        });
+
+        // create a gesture for controlling the camera
+        let gesture = gtk::GestureDrag::new();
+        gesture.set_propagation_phase(gtk::PropagationPhase::Capture);
+        let renderer = obj.clone().imp().renderer.clone();
+        gesture.connect_drag_update(move |a, mouse_x, mouse_y| {
+            let mut inner_renderer = renderer.lock().unwrap();
+            inner_renderer.rotate_camera(mouse_x as f32, mouse_y as f32);
+        });
+        let renderer = obj.clone().imp().renderer.clone();
+        gesture.connect_drag_begin(move |a, mouse_x, mouse_y| {
+            let mut inner_renderer = renderer.lock().unwrap();
+            inner_renderer.start_rotate_camera(mouse_x as f32, mouse_y as f32);
+        });
+        gesture.set_button(gtk::gdk::ffi::GDK_BUTTON_SECONDARY as u32);
+        editor_obj.imp().main_view.add_controller(&gesture);
 
         editor_obj.show();
 

@@ -10,7 +10,7 @@
             <object class="GtkBox" id="toolbar">
                 <property name="orientation">horizontal</property>
                 <property name="spacing">6</property>
-                <property name="halign">left</property>
+                <property name="halign">start</property>
                 <property name="valign">center</property>
                 <child>
                     <object class="GtkButton" id="new">
@@ -39,23 +39,34 @@
                 <property name="orientation">horizontal</property>
                 <property name="spacing">6</property>
                 <child>
-                    <object class="GtkBox" id="browser_and_viewer">
+                    <object class="GtkBox" id="broswer_and_toolbox">
                         <property name="orientation">vertical</property>
                         <property name="spacing">6</property>
                         <child>
-                            <object class="GtkTreeView" id="scene_browser">
-                                <property name="width_request">200</property>
-                            </object>
-                        </child>
-                        <child>
-                            <object class="GtkGLArea" id="main_view">
-                                <property name="width_request">800</property>
-                                <property name="height_request">600</property>
-                                <property name="halign">fill</property>
-                                <property name="valign">fill</property>
-                                <property name="has_depth_buffer">True</property>
-                                <property name="has_stencil_buffer">True</property>
-                                <property name="auto_render">True</property>
+                            <object class="GtkBox" id="browser_and_viewer">
+                                <property name="orientation">horizontal</property>
+                                <property name="spacing">6</property>
+                                <child>
+                                    <object class="GtkTreeView" id="scene_browser">
+                                        <property name="width_request">200</property>
+                                        <child>
+                                            <object class="GtkTreeViewColumn" id="entity_column">
+                                                <property name="title">entity name</property>
+                                            </object>
+                                        </child>
+                                    </object>
+                                </child>
+                                <child>
+                                    <object class="GtkGLArea" id="main_view">
+                                        <property name="width_request">1280</property>
+                                        <property name="height_request">720</property>
+                                        <property name="halign">fill</property>
+                                        <property name="valign">fill</property>
+                                        <property name="has_depth_buffer">True</property>
+                                        <property name="has_stencil_buffer">True</property>
+                                        <property name="auto_render">True</property>
+                                    </object>
+                                </child>
                             </object>
                         </child>
                     </object>

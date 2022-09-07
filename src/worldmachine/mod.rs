@@ -21,6 +21,7 @@ pub struct World {
 pub struct WorldMachine {
     pub world: World,
     pub game_data_path: String,
+    pub counter: f32,
 }
 
 impl Default for WorldMachine {
@@ -32,6 +33,7 @@ impl Default for WorldMachine {
         Self {
             world: world,
             game_data_path: String::from(""),
+            counter: 0.0,
         }
     }
 }
@@ -43,15 +45,13 @@ impl WorldMachine {
         self.world.entities.push(ht2);
     }
 
-    pub fn render(&self, renderer: &mut H2eckRenderer) {
-        debug!("rendering world");
-        for entity in self.world.entities.iter() {
+    pub fn render(&mut self, renderer: &mut H2eckRenderer) {
+        self.counter += 1.0;
+        for entity in self.world.entities.iter_mut() {
             if let Some(mesh_renderer) = entity.get_component(COMPONENT_TYPE_MESH_RENDERER.clone()) {
-                debug!("rendering entity {}", entity.get_name());
                 if let Some(mesh) = mesh_renderer.get_parameter("mesh") {
                     // get the string value of the mesh
                     let mesh_name = mesh.value.downcast::<String>().unwrap();
-                    debug!("rendering mesh {}", mesh_name);
                     // if so, render it
                     let shaders = renderer.shaders.clone().unwrap();
                     let meshes = renderer.meshes.clone().unwrap();
@@ -66,6 +66,7 @@ impl WorldMachine {
                         }
                         if let Some(rotation) = transform.get_parameter("rotation") {
                             let rotation = rotation.value.downcast::<Quaternion>().unwrap();
+                            // add a bit of rotation to the transform to make things more interesting
                             mesh.rotation = *rotation;
                         }
                         if let Some(scale) = transform.get_parameter("scale") {
@@ -73,6 +74,9 @@ impl WorldMachine {
                             mesh.scale += *scale;
                         }
                     }
+
+                    // add a bit of rotation to the transform to make things more interesting
+                    entity.set_component_parameter(COMPONENT_TYPE_TRANSFORM.clone(), "rotation", Box::new(Quaternion::from_euler_angles_zyx(&Vec3::new(0.0, self.counter, 0.0))));
 
                     mesh.render(renderer, shader, false);
                 }

@@ -6,7 +6,7 @@ pub mod camera;
 
 use std::collections::HashMap;
 use dae_parser::Document;
-use gfx_maths::{Vec2, Vec3};
+use gfx_maths::{Quaternion, Vec2, Vec3};
 use libsex::bindings::*;
 use crate::renderer::camera::Camera;
 use crate::renderer::mesh::Mesh;
@@ -17,6 +17,7 @@ use crate::worldmachine::{World, WorldMachine};
 pub struct H2eckRenderer {
     pub state: H2eckState,
     pub camera: Option<Camera>,
+    pub last_mouse_pos: (f32, f32),
     pub current_shader: Option<String>,
     pub shaders: Option<HashMap<String, Shader>>,
     pub meshes: Option<HashMap<String, Mesh>>,
@@ -32,6 +33,7 @@ impl Default for H2eckRenderer {
         Self {
             state: H2eckState::Welcome,
             camera: Option::None,
+            last_mouse_pos: (0.0, 0.0),
             current_shader: Option::None,
             shaders: Some(HashMap::new()),
             meshes: Some(HashMap::new()),
@@ -77,11 +79,43 @@ impl H2eckRenderer {
         self.meshes.as_mut().unwrap().insert("ht2".to_string(), ht2_mesh);
     }
 
+    pub fn move_camera(&mut self, direction: Vec3) {
+        let position = self.camera.as_mut().unwrap().get_position();
+        self.camera.as_mut().unwrap().set_position(position + direction);
+    }
+
+    pub fn rotate_camera(&mut self, mouse_x_offset: f32, mouse_y_offset: f32) {
+        let mut camera = self.camera.as_mut().unwrap();
+        let mut yaw = helpers::get_quaternion_yaw(camera.get_rotation());
+        let mut pitch = helpers::get_quaternion_pitch(camera.get_rotation());
+
+        yaw += mouse_x_offset;
+        pitch += mouse_y_offset;
+
+        if pitch > 89.0 {
+            pitch = 89.0;
+        }
+        if pitch < -89.0 {
+            pitch = -89.0;
+        }
+
+        let mut direction = Vec3::new(0.0, 0.0, 0.0);
+        direction.x = yaw.to_radians().cos() * pitch.to_radians().cos();
+        direction.y = pitch.to_radians().sin();
+        direction.z = yaw.to_radians().sin() * pitch.to_radians().cos();
+
+        camera.set_rotation(Quaternion::from_euler_angles_zyx(&Vec3::new(pitch, yaw, 0.0)));
+    }
+
+    pub fn start_rotate_camera(&mut self, mouse_x: f32, mouse_y: f32) {
+        self.last_mouse_pos = (mouse_x, mouse_y);
+    }
+
     // should be called upon the render action of our GtkGLArea
     pub fn render(&mut self, worldmachine: &mut WorldMachine) {
         // todo! this is a hack
         if !self.initialised {
-            self.initialise(800, 600);
+            self.initialise(1280, 720);
             debug!("initialised renderer");
             worldmachine.initialise();
             debug!("initialised worldmachine");
