@@ -3,12 +3,15 @@ pub mod helpers;
 pub mod types;
 pub mod shader;
 pub mod camera;
+pub mod keyboard;
 
 use std::collections::HashMap;
 use dae_parser::Document;
 use gfx_maths::{Quaternion, Vec2, Vec3};
+use gtk::gdk::{Key, ModifierType};
 use libsex::bindings::*;
-use crate::renderer::camera::Camera;
+use crate::renderer::camera::{Camera, CameraMovement};
+use crate::renderer::keyboard::KeyboardManager;
 use crate::renderer::mesh::Mesh;
 use crate::renderer::shader::Shader;
 use crate::renderer::types::*;
@@ -17,7 +20,9 @@ use crate::worldmachine::{World, WorldMachine};
 pub struct H2eckRenderer {
     pub state: H2eckState,
     pub camera: Option<Camera>,
-    pub last_mouse_pos: (f32, f32),
+    pub keyboard: KeyboardManager,
+    pub first_mouse_pos: (f32, f32), // offset from 0,0
+    pub camera_can_move: bool,
     pub current_shader: Option<String>,
     pub shaders: Option<HashMap<String, Shader>>,
     pub meshes: Option<HashMap<String, Mesh>>,
@@ -33,7 +38,9 @@ impl Default for H2eckRenderer {
         Self {
             state: H2eckState::Welcome,
             camera: Option::None,
-            last_mouse_pos: (0.0, 0.0),
+            keyboard: KeyboardManager::default(),
+            first_mouse_pos: (0.0, 0.0),
+            camera_can_move: false,
             current_shader: Option::None,
             shaders: Some(HashMap::new()),
             meshes: Some(HashMap::new()),
@@ -65,7 +72,7 @@ impl H2eckRenderer {
             }
         }
 
-        let camera = Camera::new(Vec2::new(width as f32, height as f32), 45.0, 0.1, 100.0);
+        let camera = Camera::new(Vec2::new(width as f32, height as f32), 90.0, 0.1, 100.0);
         self.camera = Option::Some(camera);
 
         Shader::load_shader(self, "red").expect("failed to load shader");
@@ -79,36 +86,75 @@ impl H2eckRenderer {
         self.meshes.as_mut().unwrap().insert("ht2".to_string(), ht2_mesh);
     }
 
+    pub fn process_key(&mut self, key: Key, value: bool) {
+        match key {
+            Key::w => {
+                self.keyboard.forward = value;
+            }
+            Key::s => {
+                self.keyboard.backward = value;
+            }
+            Key::a => {
+                self.keyboard.left = value;
+            }
+            Key::d => {
+                self.keyboard.right = value;
+            }
+            _ => {}
+        };
+    }
+
+    pub fn process_inputs(&mut self) {
+        let mut vec = Vec3::new(0.0, 0.0, 0.0);
+        let scale = 0.1;
+        if self.keyboard.forward {
+            debug!("forward");
+            vec += self.camera.as_mut().unwrap().process_keyboard(CameraMovement::Forward, scale);
+        }
+        if self.keyboard.backward {
+            debug!("backward");
+            vec += self.camera.as_mut().unwrap().process_keyboard(CameraMovement::Backward, scale);
+        }
+        if self.keyboard.left {
+            debug!("left");
+            vec += self.camera.as_mut().unwrap().process_keyboard(CameraMovement::Left, scale);
+        }
+        if self.keyboard.right {
+            debug!("right");
+            vec += self.camera.as_mut().unwrap().process_keyboard(CameraMovement::Right, scale);
+        }
+        self.move_camera(vec);
+    }
+
     pub fn move_camera(&mut self, direction: Vec3) {
         let position = self.camera.as_mut().unwrap().get_position();
         self.camera.as_mut().unwrap().set_position(position + direction);
+    }
+
+    pub fn start_rotate_camera(&mut self, mouse_x: f32, mouse_y: f32) {
+        self.first_mouse_pos = (mouse_x, mouse_y);
+        self.camera_can_move = true;
+    }
+
+    pub fn end_rotate_camera(&mut self) {
+        self.camera_can_move = false;
     }
 
     pub fn rotate_camera(&mut self, mouse_x_offset: f32, mouse_y_offset: f32) {
         let mut camera = self.camera.as_mut().unwrap();
         let mut yaw = helpers::get_quaternion_yaw(camera.get_rotation());
         let mut pitch = helpers::get_quaternion_pitch(camera.get_rotation());
-
-        yaw += mouse_x_offset;
-        pitch += mouse_y_offset;
-
+        yaw += -mouse_x_offset;
+        pitch += -mouse_y_offset;
         if pitch > 89.0 {
             pitch = 89.0;
         }
         if pitch < -89.0 {
             pitch = -89.0;
         }
-
-        let mut direction = Vec3::new(0.0, 0.0, 0.0);
-        direction.x = yaw.to_radians().cos() * pitch.to_radians().cos();
-        direction.y = pitch.to_radians().sin();
-        direction.z = yaw.to_radians().sin() * pitch.to_radians().cos();
-
-        camera.set_rotation(Quaternion::from_euler_angles_zyx(&Vec3::new(pitch, yaw, 0.0)));
-    }
-
-    pub fn start_rotate_camera(&mut self, mouse_x: f32, mouse_y: f32) {
-        self.last_mouse_pos = (mouse_x, mouse_y);
+        let mut rotation = Quaternion::identity();
+        rotation = Quaternion::from_euler_angles_zyx(&Vec3::new(pitch, 0.0, 0.0)) * rotation * Quaternion::from_euler_angles_zyx(&Vec3::new(0.0, yaw, 0.0));
+        camera.set_rotation(rotation);
     }
 
     // should be called upon the render action of our GtkGLArea
@@ -121,6 +167,8 @@ impl H2eckRenderer {
             debug!("initialised worldmachine");
             self.initialised = true;
         }
+
+        self.process_inputs();
 
         unsafe {
             // set the clear color to black

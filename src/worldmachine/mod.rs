@@ -76,7 +76,7 @@ impl WorldMachine {
                     }
 
                     // add a bit of rotation to the transform to make things more interesting
-                    entity.set_component_parameter(COMPONENT_TYPE_TRANSFORM.clone(), "rotation", Box::new(Quaternion::from_euler_angles_zyx(&Vec3::new(0.0, self.counter, 0.0))));
+                    //entity.set_component_parameter(COMPONENT_TYPE_TRANSFORM.clone(), "rotation", Box::new(Quaternion::from_euler_angles_zyx(&Vec3::new(0.0, self.counter, 0.0))));
 
                     mesh.render(renderer, shader, false);
                 }

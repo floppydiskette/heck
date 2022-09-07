@@ -86,8 +86,28 @@ impl h2eckWindow {
             let mut inner_renderer = renderer.lock().unwrap();
             inner_renderer.start_rotate_camera(mouse_x as f32, mouse_y as f32);
         });
+        let renderer = obj.clone().imp().renderer.clone();
+        gesture.connect_drag_end(move |a, mouse_x, mouse_y| {
+            let mut inner_renderer = renderer.lock().unwrap();
+            inner_renderer.end_rotate_camera();
+        });
         gesture.set_button(gtk::gdk::ffi::GDK_BUTTON_SECONDARY as u32);
         editor_obj.imp().main_view.add_controller(&gesture);
+
+        // create an eventcontroller for keyboard input
+        let event_controller = gtk::EventControllerKey::new();
+        let renderer = obj.clone().imp().renderer.clone();
+        event_controller.connect_key_pressed(move |a, keyval, keycode, state| {
+            let mut inner_renderer = renderer.lock().unwrap();
+            inner_renderer.process_key(keyval, true);
+            Inhibit(false)
+        });
+        let renderer = obj.clone().imp().renderer.clone();
+        event_controller.connect_key_released(move |a, keyval, keycode, state| {
+            let mut inner_renderer = renderer.lock().unwrap();
+            inner_renderer.process_key(keyval, false);
+        });
+        obj.add_controller(&event_controller);
 
         editor_obj.show();
 
