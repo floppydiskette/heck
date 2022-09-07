@@ -64,7 +64,10 @@
                                         <property name="valign">fill</property>
                                         <property name="has_depth_buffer">True</property>
                                         <property name="has_stencil_buffer">True</property>
-                                        <property name="auto_render">True</property>
+                                        <property name="can_focus">True</property>
+                                        <property name="can_target">True</property>
+                                        <property name="focusable">True</property>
+                                        <property name="focus_on_click">True</property>
                                     </object>
                                 </child>
                             </object>

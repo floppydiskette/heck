@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 use glib::subclass::InitializingObject;
 use gtk::prelude::*;
@@ -9,6 +10,7 @@ use gtk::glib::{Type, Value};
 use crate::gio::glib::clone;
 use crate::gio::SimpleAction;
 use crate::renderer::H2eckRenderer;
+use crate::worldmachine::{World, WorldMachine};
 
 
 #[derive(CompositeTemplate, Default)]
@@ -21,6 +23,8 @@ pub struct Editor {
     pub scene_browser: TemplateChild<gtk::TreeView>,
     #[template_child]
     pub entity_column: TemplateChild<gtk::TreeViewColumn>,
+
+    pub treestore: Arc<Mutex<Option<gtk::TreeStore>>>,
 }
 
 #[glib::object_subclass]
@@ -49,17 +53,32 @@ impl ObjectImpl for Editor {
 impl Editor {
     pub fn setup(&self, obj: &<Editor as ObjectSubclass>::Type) {
         // create a treemodel
-        let model = gtk::TreeStore::new(&[Type::STRING]);
+        let mut model = self.treestore.lock().unwrap();
+        *model = Some(gtk::TreeStore::new(&[Type::STRING]));
+        let model = model.as_ref().unwrap();
         let root = model.append(None);
-        model.set(&root, &[(0, &Value::from("root"))]);
-        let child = model.append(Some(&root));
-        model.set(&child, &[(0, &Value::from("child"))]);
-        self.scene_browser.set_model(Some(&model));
+        model.set(&root, &[(0, &Value::from("worldmachine"))]);
+        self.scene_browser.set_model(Some(model));
         // setup a cell renderer
         let cell = gtk::CellRendererText::new();
         self.entity_column.pack_start(&cell, true);
         self.entity_column.add_attribute(&cell, "text", 0);
+    }
 
+    pub fn regen_model_from_world(&self, wm: &mut World) {
+        let mut model = self.treestore.lock().unwrap();
+        let model = model.as_ref().unwrap();
+        model.clear();
+        let root = model.append(None);
+        model.set(&root, &[(0, &Value::from("worldmachine"))]);
+        for entity in wm.clone().entities {
+            let entity_node = model.append(Some(&root));
+            model.set(&entity_node, &[(0, &Value::from(entity.get_name().as_str()))]);
+            for component in entity.get_components() {
+                let component_node = model.append(Some(&entity_node));
+                model.set(&component_node, &[(0, &Value::from(component.get_name().as_str()))]);
+            }
+        }
     }
 }
 

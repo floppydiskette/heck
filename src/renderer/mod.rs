@@ -21,7 +21,7 @@ pub struct H2eckRenderer {
     pub state: H2eckState,
     pub camera: Option<Camera>,
     pub keyboard: KeyboardManager,
-    pub first_mouse_pos: (f32, f32), // offset from 0,0
+    pub last_mouse_position: (f32, f32),
     pub camera_can_move: bool,
     pub current_shader: Option<String>,
     pub shaders: Option<HashMap<String, Shader>>,
@@ -39,7 +39,7 @@ impl Default for H2eckRenderer {
             state: H2eckState::Welcome,
             camera: Option::None,
             keyboard: KeyboardManager::default(),
-            first_mouse_pos: (0.0, 0.0),
+            last_mouse_position: (0.0, 0.0),
             camera_can_move: false,
             current_shader: Option::None,
             shaders: Some(HashMap::new()),
@@ -128,15 +128,17 @@ impl H2eckRenderer {
     }
 
     pub fn start_rotate_camera(&mut self, mouse_x: f32, mouse_y: f32) {
-        self.first_mouse_pos = (mouse_x, mouse_y);
         self.camera_can_move = true;
     }
 
-    pub fn end_rotate_camera(&mut self) {
+    pub fn end_rotate_camera(&mut self, mouse_x: f32, mouse_y: f32) {
         self.camera_can_move = false;
+        self.last_mouse_position = (mouse_x, mouse_y);
     }
 
     pub fn rotate_camera(&mut self, mouse_x_offset: f32, mouse_y_offset: f32) {
+        let mouse_x_offset = self.last_mouse_position.0 + mouse_x_offset;
+        let mouse_y_offset = self.last_mouse_position.1 + mouse_y_offset;
         let mut camera = self.camera.as_mut().unwrap();
         let mut yaw = helpers::get_quaternion_yaw(camera.get_rotation());
         let mut pitch = helpers::get_quaternion_pitch(camera.get_rotation());
@@ -159,8 +161,6 @@ impl H2eckRenderer {
         if !self.initialised {
             self.initialise(1280, 720);
             debug!("initialised renderer");
-            worldmachine.initialise();
-            debug!("initialised worldmachine");
             self.initialised = true;
         }
 

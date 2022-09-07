@@ -56,6 +56,15 @@ impl Component for Transform {
             _ => {}
         }
     }
+
+    fn clone(&self) -> Box<dyn Component> {
+        Box::new(Transform {
+            component_type: self.component_type.clone(),
+            position: self.position,
+            rotation: self.rotation,
+            scale: self.scale,
+        })
+    }
 }
 
 impl Default for Transform {
@@ -106,6 +115,13 @@ impl Component for MeshRenderer {
             }
             _ => {}
         }
+    }
+
+    fn clone(&self) -> Box<dyn Component> {
+        Box::new(MeshRenderer {
+            mesh: self.mesh.clone(),
+            component_type: self.component_type.clone(),
+        })
     }
 }
 

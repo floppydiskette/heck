@@ -58,6 +58,23 @@ impl Entity for EntityBase {
         let child_id = child.get_id();
         self.children.retain(|child| child.get_id() != child_id);
     }
+
+    fn clone(&self) -> Box<dyn Entity> {
+        let mut entity = EntityBase{
+            name: self.name.clone(),
+            id: self.id,
+            components: Default::default(),
+            children: vec![],
+            parent: None
+        };
+        for (_, component) in self.components.iter() {
+            entity.add_component(component.clone().deref().clone());
+        }
+        for child in self.children.iter() {
+            entity.add_child(child.clone().deref().clone());
+        }
+        Box::new(entity)
+    }
 }
 
 impl EntityBase {

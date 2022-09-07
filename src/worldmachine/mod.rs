@@ -1,7 +1,9 @@
 use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 use gfx_maths::{Quaternion, Vec3};
+use gtk::subclass::prelude::ObjectSubclassIsExt;
 use crate::Cast;
+use crate::h2eck_window::editor::Editor;
 use crate::renderer::H2eckRenderer;
 use crate::worldmachine::components::{COMPONENT_TYPE_MESH_RENDERER, COMPONENT_TYPE_TRANSFORM, MeshRenderer};
 use crate::worldmachine::ecs::*;
@@ -18,10 +20,28 @@ pub struct World {
     pub systems: Vec<Box<dyn System>>,
 }
 
+impl Clone for World {
+    fn clone(&self) -> Self {
+        let mut entities = Vec::new();
+        for entity in &self.entities {
+            entities.push(entity.deref().clone());
+        }
+        let mut systems = Vec::new();
+        for system in &self.systems {
+            systems.push(system.deref().clone());
+        }
+        World {
+            entities,
+            systems,
+        }
+    }
+}
+
 pub struct WorldMachine {
     pub world: World,
     pub game_data_path: String,
     pub counter: f32,
+    pub editor: Arc<Mutex<Option<Editor>>>
 }
 
 impl Default for WorldMachine {
@@ -34,15 +54,19 @@ impl Default for WorldMachine {
             world: world,
             game_data_path: String::from(""),
             counter: 0.0,
+            editor: Arc::new(Mutex::new(Option::None))
         }
     }
 }
 
 impl WorldMachine {
-    pub fn initialise(&mut self) {
+    pub fn initialise(&mut self, editor: Arc<Mutex<Option<Editor>>>) {
         let mut ht2 = Box::new(new_ht2_entity());
         ht2.set_component_parameter(COMPONENT_TYPE_TRANSFORM.clone(), "position", Box::new(Vec3::new(0.0, 0.25, 4.0)));
         self.world.entities.push(ht2);
+        self.editor = editor;
+        let editor = self.editor.lock().unwrap();
+        editor.as_ref().unwrap().imp().regen_model_from_world(&mut self.world);
     }
 
     pub fn render(&mut self, renderer: &mut H2eckRenderer) {

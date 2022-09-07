@@ -24,6 +24,7 @@ pub trait Component {
     fn get_parameters(&self) -> Vec<Parameter>;
     fn get_parameter(&self, parameter_name: &str) -> Option<Parameter>;
     fn set_parameter(&mut self, parameter_name: &str, value: Box<dyn Any>);
+    fn clone(&self) -> Box<dyn Component>;
 }
 
 pub trait Entity {
@@ -37,6 +38,7 @@ pub trait Entity {
     fn get_children(&self) -> Vec<&dyn Entity>;
     fn add_child(&mut self, child: Box<dyn Entity>);
     fn remove_child(&mut self, child: Box<dyn Entity>);
+    fn clone(&self) -> Box<dyn Entity>;
 }
 
 pub trait System {
@@ -48,6 +50,7 @@ pub trait System {
     fn add_entity(&mut self, entity: Box<dyn Entity>);
     fn remove_entity(&mut self, entity_id: u32);
     fn update(&mut self);
+    fn clone(&self) -> Box<dyn System>;
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
