@@ -108,19 +108,15 @@ impl H2eckRenderer {
         let mut vec = Vec3::new(0.0, 0.0, 0.0);
         let scale = 0.1;
         if self.keyboard.forward {
-            debug!("forward");
             vec += self.camera.as_mut().unwrap().process_keyboard(CameraMovement::Forward, scale);
         }
         if self.keyboard.backward {
-            debug!("backward");
             vec += self.camera.as_mut().unwrap().process_keyboard(CameraMovement::Backward, scale);
         }
         if self.keyboard.left {
-            debug!("left");
             vec += self.camera.as_mut().unwrap().process_keyboard(CameraMovement::Left, scale);
         }
         if self.keyboard.right {
-            debug!("right");
             vec += self.camera.as_mut().unwrap().process_keyboard(CameraMovement::Right, scale);
         }
         self.move_camera(vec);
