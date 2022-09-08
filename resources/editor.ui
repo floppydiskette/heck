@@ -54,6 +54,11 @@
                                                 <property name="title">entity name</property>
                                             </object>
                                         </child>
+                                        <child>
+                                            <object class="GtkTreeViewColumn" id="entity_id_column">
+                                                <property name="title">entity id</property>
+                                            </object>
+                                        </child>
                                     </object>
                                 </child>
                                 <child>
@@ -85,7 +90,34 @@
                         </child>
                         <child>
                             <object class="GtkTreeView" id="inspector_tree">
-
+                                <property name="width_request">200</property>
+                                <property name="halign">fill</property>
+                                <property name="valign">fill</property>
+                                <property name="hexpand">True</property>
+                                <property name="vexpand">True</property>
+                                <property name="enable_grid_lines">both</property>
+                                <property name="enable_tree_lines">True</property>
+                                <property name="search_column">0</property>
+                                <child>
+                                    <object class="GtkTreeViewColumn" id="parameter_column">
+                                        <property name="title">property name</property>
+                                        <child>
+                                            <object class="GtkCellRendererText" id="parameter_name_renderer">
+                                                <property name="editable">False</property>
+                                            </object>
+                                        </child>
+                                    </object>
+                                </child>
+                                <child>
+                                    <object class="GtkTreeViewColumn" id="value_column">
+                                        <property name="title">property value</property>
+                                        <child>
+                                            <object class="GtkCellRendererText" id="parameter_value_renderer">
+                                                <property name="editable">True</property>
+                                            </object>
+                                        </child>
+                                    </object>
+                                </child>
                             </object>
                         </child>
                     </object>

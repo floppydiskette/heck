@@ -93,6 +93,4 @@ fn build_appwide_actions(app: &Application, window: &h2eckWindow) {
 }
 
 fn build_accelerators(app: &Application) {
-    app.set_accels_for_action("app.about", &["<Primary>a"]);
-    app.set_accels_for_action("app.quit", &["<Primary>q"]);
 }

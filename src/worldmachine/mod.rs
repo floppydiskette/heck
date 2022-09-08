@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 use gfx_maths::{Quaternion, Vec3};
@@ -67,6 +68,118 @@ impl WorldMachine {
         self.editor = editor;
         let editor = self.editor.lock().unwrap();
         editor.as_ref().unwrap().imp().regen_model_from_world(&mut self.world);
+    }
+
+    pub fn get_entity(&self, entity_id: u32) -> Option<Arc<Mutex<&Box<dyn Entity>>>> {
+        for entity in self.world.entities.iter() {
+            if entity.get_id() == entity_id {
+                return Some(Arc::new(Mutex::new(entity)));
+            }
+        }
+        None
+    }
+
+    pub fn get_entity_index(&self, entity_id: u32) -> Option<usize> {
+        for (index, entity) in self.world.entities.iter().enumerate() {
+            if entity.get_id() == entity_id {
+                return Some(index);
+            }
+        }
+        None
+    }
+
+    pub fn attempt_to_set_component_property(&mut self, entity_id: u32, component_name: String, property_name: String, value: String) {
+        debug!("attempt_to_set_component_property: entity_id: {}, component_name: {}, property_name: {}, value: {}", entity_id, component_name, property_name, value);
+        let mut entity_index = self.get_entity_index(entity_id).unwrap();
+        let mut entity = self.world.entities[entity_index].clone();
+        let components = entity.get_components();
+        let mut component = None;
+        for c in components {
+            if c.get_name() == component_name {
+                component = Some(c);
+                break;
+            }
+        }
+        if component.is_none() {
+            error!("attempt_to_set_component_property: component not found");
+            return;
+        }
+        let component = component.unwrap();
+        let parameter = component.get_parameter(&property_name).unwrap();
+
+        // switch on type
+        // if type is string, set string
+        // if type is float, convert to float and set float
+        // if type is vec3, interpret f32,f32,f32 as x,y,z and set vec3
+        // if type is quaternion, interpret f32,f32,f32,f32 as x,y,z,w and set quaternion
+        // if type is bool, interpret "true" as true and "false" as false and set bool
+        // if type is u32, convert to u32 and set u32
+        // if type is i32, convert to i32 and set i32
+        let string_type = std::any::TypeId::of::<String>();
+        let float_type = std::any::TypeId::of::<f32>();
+        let vec3_type = std::any::TypeId::of::<Vec3>();
+        let quaternion_type = std::any::TypeId::of::<Quaternion>();
+        let bool_type = std::any::TypeId::of::<bool>();
+        let u32_type = std::any::TypeId::of::<u32>();
+        let i32_type = std::any::TypeId::of::<i32>();
+        let type_id = parameter.value.deref().type_id();
+        match type_id {
+            x if x == string_type => {
+                let mut value = value.clone();
+                self.world.entities[entity_index].set_component_parameter(component.get_type(), &*property_name, Box::new(value));
+            },
+            x if x == float_type => {
+                let value = value.parse::<f32>().unwrap();
+                self.world.entities[entity_index].set_component_parameter(component.get_type(), &*property_name, Box::new(value));
+            },
+            x if x == vec3_type => {
+                let mut value = value;
+                let mut x = 0.0;
+                let mut y = 0.0;
+                let mut z = 0.0;
+                if value.contains(",") {
+                    let mut split = value.split(",");
+                    x = split.next().unwrap().parse::<f32>().unwrap();
+                    y = split.next().unwrap().parse::<f32>().unwrap();
+                    z = split.next().unwrap().parse::<f32>().unwrap();
+                } else {
+                    x = value.parse::<f32>().unwrap();
+                }
+                self.world.entities[entity_index].set_component_parameter(component.get_type(), &property_name, Box::new(Vec3::new(x, y, z)));
+            },
+            x if x == quaternion_type => {
+                let mut value = value;
+                let mut x = 0.0;
+                let mut y = 0.0;
+                let mut z = 0.0;
+                let mut w = 0.0;
+                if value.contains(",") {
+                    let mut split = value.split(",");
+                    x = split.next().unwrap().parse::<f32>().unwrap();
+                    y = split.next().unwrap().parse::<f32>().unwrap();
+                    z = split.next().unwrap().parse::<f32>().unwrap();
+                    w = split.next().unwrap().parse::<f32>().unwrap();
+                } else {
+                    x = value.parse::<f32>().unwrap();
+                }
+                self.world.entities[entity_index].set_component_parameter(component.get_type(), &property_name, Box::new(Quaternion::new(x, y, z, w)));
+            },
+            x if x == bool_type => {
+                let value = value.parse::<bool>().unwrap();
+                self.world.entities[entity_index].set_component_parameter(component.get_type(), &property_name, Box::new(value));
+            },
+            x if x == u32_type => {
+                let value = value.parse::<u32>().unwrap();
+                self.world.entities[entity_index].set_component_parameter(component.get_type(), &property_name, Box::new(value));
+            },
+            x if x == i32_type => {
+                let value = value.parse::<i32>().unwrap();
+                self.world.entities[entity_index].set_component_parameter(component.get_type(), &property_name, Box::new(value));
+            },
+            _ => {
+                error!("attempt_to_set_component_property: unknown type: {:?}", parameter.value);
+            }
+        }
     }
 
     pub fn render(&mut self, renderer: &mut H2eckRenderer) {
