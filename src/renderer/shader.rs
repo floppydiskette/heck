@@ -43,17 +43,21 @@ impl Shader {
             if status == 0 {
                 let mut len = 255;
                 glGetShaderiv(vert_shader, GL_INFO_LOG_LENGTH, &mut len);
-                let mut log = Vec::with_capacity(len as usize);
-                glGetShaderInfoLog(vert_shader, len, null_mut(), log.as_mut_ptr() as *mut GLchar);
-                return Err(format!("failed to compile vertex shader: {}", std::str::from_utf8(&log).unwrap()));
+                let log = vec![0; len as usize + 1];
+                let log_c = CString::from_vec_unchecked(log);
+                let log_p = log_c.into_raw();
+                glGetShaderInfoLog(vert_shader, len, null_mut(), log_p);
+                return Err(format!("failed to compile vertex shader: {}", CString::from_raw(log_p).to_string_lossy()));
             }
             glGetShaderiv(frag_shader, GL_COMPILE_STATUS, &mut status);
             if status == 0 {
                 let mut len = 255;
                 glGetShaderiv(frag_shader, GL_INFO_LOG_LENGTH, &mut len);
-                let mut log = Vec::with_capacity(len as usize);
-                glGetShaderInfoLog(frag_shader, len, null_mut(), log.as_mut_ptr() as *mut GLchar);
-                return Err(format!("failed to compile fragment shader: {}", std::str::from_utf8(&log).unwrap()));
+                let log = vec![0; len as usize + 1];
+                let log_c = CString::from_vec_unchecked(log);
+                let log_p = log_c.into_raw();
+                glGetShaderInfoLog(frag_shader, len, null_mut(), log_p);
+                return Err(format!("failed to compile fragment shader: {}", CString::from_raw(log_p).to_string_lossy()));
             }
         }
 
@@ -71,9 +75,11 @@ impl Shader {
             if status == 0 {
                 let mut len = 0;
                 glGetProgramiv(shader_program, GL_INFO_LOG_LENGTH, &mut len);
-                let mut log = Vec::with_capacity(len as usize);
-                glGetProgramInfoLog(shader_program, len, null_mut(), log.as_mut_ptr() as *mut GLchar);
-                return Err(format!("failed to link shader program: {}", std::str::from_utf8(&log).unwrap()));
+                let log = vec![0; len as usize + 1];
+                let log_c = CString::from_vec_unchecked(log);
+                let log_p = log_c.into_raw();
+                glGetProgramInfoLog(shader_program, len, null_mut(), log_p);
+                return Err(format!("failed to link shader program: {}", CString::from_raw(log_p).to_string_lossy()));
             }
         }
 

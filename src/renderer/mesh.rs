@@ -378,6 +378,68 @@ impl Mesh {
                 error = glGetError();
             }
         }
+
+        // secondly, render the selection buffer
+        if let Some(entity_id) = selection_buffer {
+            unsafe {
+                glBindFramebuffer(GL_FRAMEBUFFER, renderer.selection_framebuffer as GLuint);
+
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+                // get the "picking" shader
+                let picking_shader = renderer.shaders.as_mut().unwrap().get("picking").unwrap();
+
+                // load the shader
+                if renderer.current_shader != Some(picking_shader.name.clone()) {
+                    glUseProgram(picking_shader.program);
+                    renderer.current_shader = Some(picking_shader.name.clone());
+                }
+
+                // load the model and transform it again
+                glEnableVertexAttribArray(0);
+                glBindVertexArray(self.vao);
+                if pass_texture {
+                    //glActiveTexture(GL_TEXTURE0);
+                    //glBindTexture(GL_TEXTURE_2D, self.texture.unwrap().diffuse_texture);
+                    //glUniform1i(glGetUniformLocation(renderer.shaders.as_mut().unwrap()[shader_index].program, CString::new("u_texture").unwrap().as_ptr()), 0);
+                    // DON'T PRINT OPEN GL ERRORS HERE! BIGGEST MISTAKE OF MY LIFE
+                }
+
+                // transformation time!
+                let camera_projection = renderer.camera.as_mut().unwrap().get_projection();
+                let camera_view = renderer.camera.as_mut().unwrap().get_view();
+
+                // calculate the model matrix
+                let model_matrix = calculate_model_matrix(self.position, self.rotation, self.scale);
+
+                // calculate the mvp matrix
+                let mvp = camera_projection * camera_view * model_matrix;
+
+                // send the mvp matrix to the shader
+                let mvp_loc = glGetUniformLocation(shader.program, CString::new("u_mvp").unwrap().as_ptr());
+                glUniformMatrix4fv(mvp_loc, 1, GL_TRUE as GLboolean, mvp.as_ptr());
+                // send the entity id to the shader
+                let entity_id_loc = glGetUniformLocation(shader.program, CString::new("u_entity_id").unwrap().as_ptr());
+                glUniform1ui(entity_id_loc, entity_id as GLuint);
+
+                glDrawElements(GL_TRIANGLES, self.num_indices as GLsizei, GL_UNSIGNED_INT, null());
+                glDisableVertexAttribArray(0);
+
+                // set uniform back to default
+                let entity_id_loc = glGetUniformLocation(shader.program, CString::new("u_entity_id").unwrap().as_ptr());
+                glUniform1ui(entity_id_loc, 0);
+
+                // print opengl errors
+                let mut error = glGetError();
+                while error != GL_NO_ERROR {
+                    error!("OpenGL error while rendering (selection buffer): {}", error);
+                    error = glGetError();
+                }
+
+                // reset the framebuffer
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            }
+        }
     }
 }
 

@@ -7,6 +7,7 @@ pub mod keyboard;
 pub mod raycasting;
 
 use std::collections::HashMap;
+use std::ffi::c_void;
 use dae_parser::Document;
 use gfx_maths::{Quaternion, Vec2, Vec3};
 use gtk::gdk::{Key, ModifierType};
@@ -60,6 +61,11 @@ impl Default for H2eckRenderer {
 impl H2eckRenderer {
     pub fn initialise(&mut self, width: u32, height: u32) {
 
+        let camera = Camera::new(Vec2::new(width as f32, height as f32), 90.0, 0.1, 100.0);
+        self.camera = Option::Some(camera);
+
+        self.create_selection_framebuffer(self.camera.as_ref().unwrap().get_window_size());
+
         unsafe {
             // Configure culling
             glEnable(GL_CULL_FACE);
@@ -80,10 +86,8 @@ impl H2eckRenderer {
             }
         }
 
-        let camera = Camera::new(Vec2::new(width as f32, height as f32), 90.0, 0.1, 100.0);
-        self.camera = Option::Some(camera);
-
         Shader::load_shader(self, "red").expect("failed to load shader");
+        Shader::load_shader(self, "picking").expect("failed to load shader (picking)");
         let ht2_document = Document::from_file("internal/models/ht2.dae").expect("failed to load ht2.dae");
         let mut ht2_mesh =
             Mesh::new(ht2_document, "ht2-mesh",
@@ -190,6 +194,21 @@ impl H2eckRenderer {
         camera.set_rotation(rotation);
     }
 
+    pub fn get_id_from_pixel(&self, position: Vec2) -> Option<u32> {
+        unsafe {
+            glBindFramebuffer(GL_FRAMEBUFFER, self.selection_framebuffer as u32);
+            glReadBuffer(GL_COLOR_ATTACHMENT0);
+            let mut pixel = [0, 0, 0];
+            glReadPixels(position.x as i32, position.y as i32, 1, 1, GL_RGB_INTEGER, GL_UNSIGNED_INT, pixel.as_mut_ptr() as *mut c_void);
+            glReadBuffer(GL_NONE);
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            if pixel[0] == 0 && pixel[1] == 0 && pixel[2] == 0 {
+                return Option::None;
+            }
+            return Option::Some(pixel[0] as u32);
+        }
+    }
+
     // should be called upon the render action of our GtkGLArea
     pub fn render(&mut self, worldmachine: &mut WorldMachine) {
         // todo! this is a hack
@@ -206,7 +225,10 @@ impl H2eckRenderer {
             glClearColor(0.1, 0.0, 0.1, 1.0);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            worldmachine.render(self);
+            // render first without the selection framebuffer
+            worldmachine.render(self, false);
+            // render again with the selection framebuffer
+            worldmachine.render(self, true);
 
             glFlush();
         }
