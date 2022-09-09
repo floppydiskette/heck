@@ -1,11 +1,12 @@
 use std::any::Any;
 use std::ops::Deref;
 use std::sync::{Arc, Mutex};
-use gfx_maths::{Quaternion, Vec3};
+use gfx_maths::{Quaternion, Vec2, Vec3};
 use gtk::subclass::prelude::ObjectSubclassIsExt;
 use crate::Cast;
 use crate::h2eck_window::editor::Editor;
 use crate::renderer::H2eckRenderer;
+use crate::renderer::raycasting::Ray;
 use crate::worldmachine::components::{COMPONENT_TYPE_MESH_RENDERER, COMPONENT_TYPE_TRANSFORM, MeshRenderer};
 use crate::worldmachine::ecs::*;
 use crate::worldmachine::entities::new_ht2_entity;
@@ -149,20 +150,18 @@ impl WorldMachine {
             },
             x if x == quaternion_type => {
                 let mut value = value;
-                let mut x = 0.0;
                 let mut y = 0.0;
-                let mut z = 0.0;
-                let mut w = 0.0;
+                let mut p = 0.0;
+                let mut r = 0.0;
                 if value.contains(",") {
                     let mut split = value.split(",");
-                    x = split.next().unwrap().parse::<f32>().unwrap();
                     y = split.next().unwrap().parse::<f32>().unwrap();
-                    z = split.next().unwrap().parse::<f32>().unwrap();
-                    w = split.next().unwrap().parse::<f32>().unwrap();
+                    p = split.next().unwrap().parse::<f32>().unwrap();
+                    r = split.next().unwrap().parse::<f32>().unwrap();
                 } else {
-                    x = value.parse::<f32>().unwrap();
+                    y = value.parse::<f32>().unwrap();
                 }
-                self.world.entities[entity_index].set_component_parameter(component.get_type(), &property_name, Box::new(Quaternion::new(x, y, z, w)));
+                self.world.entities[entity_index].set_component_parameter(component.get_type(), &property_name, Box::new(Quaternion::from_euler_angles_zyx(&Vec3::new(y, p, r))));
             },
             x if x == bool_type => {
                 let value = value.parse::<bool>().unwrap();
@@ -182,7 +181,10 @@ impl WorldMachine {
         }
     }
 
-    pub fn render(&mut self, renderer: &mut H2eckRenderer) {
+    pub fn select(&mut self, mouse_x: f32, mouse_y: f32, renderer: &mut H2eckRenderer) {
+    }
+
+    pub fn render(&mut self, renderer: &mut H2eckRenderer, selection_buffer: bool) {
         self.counter += 1.0;
         for entity in self.world.entities.iter_mut() {
             if let Some(mesh_renderer) = entity.get_component(COMPONENT_TYPE_MESH_RENDERER.clone()) {
@@ -192,30 +194,37 @@ impl WorldMachine {
                     // if so, render it
                     let shaders = renderer.shaders.clone().unwrap();
                     let meshes = renderer.meshes.clone().unwrap();
-                    let shader = shaders.get("red").unwrap();
-                    let mut mesh = meshes.get("ht2").unwrap().clone();
+                    let mesh = meshes.get(&*mesh_name);
+                    if let Some(mesh) = mesh {
+                        let mut mesh = *mesh;
+                        let shader = shaders.get("red").unwrap();
 
-                    // if this entity has a transform, apply it
-                    if let Some(transform) = entity.get_component(COMPONENT_TYPE_TRANSFORM.clone()) {
-                        if let Some(position) = transform.get_parameter("position") {
-                            let position = position.value.downcast::<Vec3>().unwrap();
-                            mesh.position += *position;
+                        // if this entity has a transform, apply it
+                        if let Some(transform) = entity.get_component(COMPONENT_TYPE_TRANSFORM.clone()) {
+                            if let Some(position) = transform.get_parameter("position") {
+                                let position = position.value.downcast::<Vec3>().unwrap();
+                                mesh.position += *position;
+                            }
+                            if let Some(rotation) = transform.get_parameter("rotation") {
+                                let rotation = rotation.value.downcast::<Quaternion>().unwrap();
+                                // add a bit of rotation to the transform to make things more interesting
+                                mesh.rotation = *rotation;
+                            }
+                            if let Some(scale) = transform.get_parameter("scale") {
+                                let scale = scale.value.downcast::<Vec3>().unwrap();
+                                mesh.scale += *scale;
+                            }
                         }
-                        if let Some(rotation) = transform.get_parameter("rotation") {
-                            let rotation = rotation.value.downcast::<Quaternion>().unwrap();
-                            // add a bit of rotation to the transform to make things more interesting
-                            mesh.rotation = *rotation;
-                        }
-                        if let Some(scale) = transform.get_parameter("scale") {
-                            let scale = scale.value.downcast::<Vec3>().unwrap();
-                            mesh.scale += *scale;
+
+                        // add a bit of rotation to the transform to make things more interesting
+                        //entity.set_component_parameter(COMPONENT_TYPE_TRANSFORM.clone(), "rotation", Box::new(Quaternion::from_euler_angles_zyx(&Vec3::new(0.0, self.counter, 0.0))));
+
+                        if selection_buffer {
+                            mesh.render(renderer, shader, false, Some(entity.get_id()));
+                        } else {
+                            mesh.render(renderer, shader, false, None);
                         }
                     }
-
-                    // add a bit of rotation to the transform to make things more interesting
-                    //entity.set_component_parameter(COMPONENT_TYPE_TRANSFORM.clone(), "rotation", Box::new(Quaternion::from_euler_angles_zyx(&Vec3::new(0.0, self.counter, 0.0))));
-
-                    mesh.render(renderer, shader, false);
                 }
             }
         }

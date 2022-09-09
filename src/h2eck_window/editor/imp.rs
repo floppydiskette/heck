@@ -2,7 +2,7 @@ use std::any::Any;
 use std::ops::Deref;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
-use gfx_maths::Vec3;
+use gfx_maths::{Quaternion, Vec3};
 use glib::subclass::InitializingObject;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
@@ -86,6 +86,7 @@ pub fn regen_inspector_from_component(it_treestore: Arc<Mutex<Option<gtk::TreeSt
         let int_type = std::any::TypeId::of::<i32>();
         let bool_type = std::any::TypeId::of::<bool>();
         let vec3_type = std::any::TypeId::of::<Vec3>();
+        let quaternion_type = std::any::TypeId::of::<Quaternion>();
 
         match parameter_type {
             x if x == string_type => {
@@ -110,6 +111,14 @@ pub fn regen_inspector_from_component(it_treestore: Arc<Mutex<Option<gtk::TreeSt
                 let y = vec3_value.y.to_string();
                 let z = vec3_value.z.to_string();
                 model.set(&property_node, &[(1, &Value::from(format!("{},{},{}", x, y, z).as_str()))]);
+            },
+            x if x == quaternion_type => {
+                let quaternion_value = parameter_value.downcast_ref::<Quaternion>().unwrap();
+                let ypr = Quaternion::to_euler_angles_zyx(quaternion_value);
+                let yaw = ypr.x.to_string();
+                let pitch = ypr.y.to_string();
+                let roll = ypr.z.to_string();
+                model.set(&property_node, &[(1, &Value::from(format!("{},{},{}", yaw, pitch, roll).as_str()))]);
             },
             _ => {
                 model.set(&property_node, &[(1, &Value::from("unknown"))]);

@@ -4,6 +4,7 @@ pub mod types;
 pub mod shader;
 pub mod camera;
 pub mod keyboard;
+pub mod raycasting;
 
 use std::collections::HashMap;
 use dae_parser::Document;
@@ -13,6 +14,7 @@ use libsex::bindings::*;
 use crate::renderer::camera::{Camera, CameraMovement};
 use crate::renderer::keyboard::KeyboardManager;
 use crate::renderer::mesh::Mesh;
+use crate::renderer::raycasting::Ray;
 use crate::renderer::shader::Shader;
 use crate::renderer::types::*;
 use crate::worldmachine::{World, WorldMachine};
@@ -26,6 +28,9 @@ pub struct H2eckRenderer {
     pub current_shader: Option<String>,
     pub shaders: Option<HashMap<String, Shader>>,
     pub meshes: Option<HashMap<String, Mesh>>,
+    pub selection_framebuffer: isize,
+    pub selection_texture: isize,
+    pub selected_entity: isize,
     pub initialised: bool,
 }
 
@@ -44,6 +49,9 @@ impl Default for H2eckRenderer {
             current_shader: Option::None,
             shaders: Some(HashMap::new()),
             meshes: Some(HashMap::new()),
+            selection_framebuffer: -1,
+            selection_texture: -1,
+            selected_entity: -1,
             initialised: false,
         }
     }
@@ -84,6 +92,33 @@ impl H2eckRenderer {
             .expect("failed to create ht2 mesh");
         //ht2_mesh.position = Vec3::new(0.0, 0.25, 4.0);
         self.meshes.as_mut().unwrap().insert("ht2".to_string(), ht2_mesh);
+    }
+
+    fn create_selection_framebuffer(&mut self, window_size: Vec2) {
+        unsafe {
+            let mut framebuffer = 0;
+
+            glGenFramebuffers(1, &mut framebuffer);
+            glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+
+            let mut texture = 0;
+
+            glGenTextures(1, &mut texture);
+            glBindTexture(GL_TEXTURE_2D, texture);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32UI as i32, window_size.x as i32, window_size.y as i32, 0, GL_RGB_INTEGER, GL_UNSIGNED_INT, std::ptr::null());
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST as i32);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST as i32);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+
+            if glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE {
+                error!("failed to create selection framebuffer");
+            }
+
+            self.selection_framebuffer = framebuffer as isize;
+            self.selection_texture = texture as isize;
+
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        }
     }
 
     pub fn process_key(&mut self, key: Key, value: bool) {

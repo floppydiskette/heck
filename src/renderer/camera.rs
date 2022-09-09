@@ -71,6 +71,10 @@ impl Camera {
         velocity * scale
     }
 
+    pub fn get_window_size(&self) -> Vec2 {
+        self.window_size
+    }
+
     pub fn get_front(&self) -> Vec3 {
         let mut front = Vec3::new(0.0, 0.0, -1.0);
         front = helpers::rotate_vector_by_quaternion(front, self.rotation);

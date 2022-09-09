@@ -133,3 +133,76 @@ impl Default for MeshRenderer {
         }
     }
 }
+
+// brush
+impl Component for Brush {
+    fn get_id(&self) -> u32 {
+        self.component_type.id
+    }
+
+    fn get_name(&self) -> String {
+        self.component_type.name.clone()
+    }
+
+    fn get_type(&self) -> ComponentType {
+        self.component_type.clone()
+    }
+
+    fn get_parameters(&self) -> Vec<Parameter> {
+        vec![
+            Parameter::new("a", Box::new(self.a)),
+            Parameter::new("b", Box::new(self.b)),
+            Parameter::new("mesh", Box::new(self.mesh.clone())),
+        ]
+    }
+
+    fn get_parameter(&self, parameter_name: &str) -> Option<Parameter> {
+        match parameter_name {
+            "a" => Some(Parameter::new("a", Box::new(self.a))),
+            "b" => Some(Parameter::new("b", Box::new(self.b))),
+            "mesh" => Some(Parameter::new("mesh", Box::new(self.mesh.clone()))),
+            _ => None,
+        }
+    }
+
+    fn set_parameter(&mut self, parameter_name: &str, value: Box<dyn Any>) {
+        match parameter_name {
+            "a" => {
+                if let Ok(value) = value.downcast::<Vec3>() {
+                    self.a = *value;
+                }
+            }
+            "b" => {
+                if let Ok(value) = value.downcast::<Vec3>() {
+                    self.b = *value;
+                }
+            }
+            "mesh" => {
+                if let Ok(value) = value.downcast::<String>() {
+                    self.mesh = *value.clone();
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn clone(&self) -> Box<dyn Component> {
+        Box::new(Brush {
+            a: self.a,
+            b: self.b,
+            mesh: self.mesh.clone(),
+            component_type: self.component_type.clone(),
+        })
+    }
+}
+
+impl Default for Brush {
+    fn default() -> Self {
+        Self {
+            a: Vec3::new(0.0, 0.0, 0.0),
+            b: Vec3::new(1.0, 1.0, 1.0),
+            mesh: String::new(),
+            component_type: COMPONENT_TYPE_BRUSH.clone(),
+        }
+    }
+}
