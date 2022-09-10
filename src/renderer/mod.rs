@@ -10,7 +10,6 @@ pub mod terrain;
 
 use std::collections::HashMap;
 use std::ffi::c_void;
-use dae_parser::Document;
 use gfx_maths::{Quaternion, Vec2, Vec3};
 use gtk::gdk::{Key, ModifierType};
 use libsex::bindings::*;
@@ -112,12 +111,11 @@ impl H2eckRenderer {
         self.terrains = Some(HashMap::new());
         self.terrains.as_mut().unwrap().insert("ll_main".to_string(), terrain);
 
-        let ht2_document = Document::from_file("internal/models/ht2.dae").expect("failed to load ht2.dae");
         let mut ht2_mesh =
-            Mesh::new(ht2_document, "ht2-mesh",
+            Mesh::new("internal/models/ht2.dae", "ht2-mesh",
                  &self.shaders.as_mut().unwrap().get("basic").unwrap().clone(), self)
             .expect("failed to create ht2 mesh");
-        //ht2_mesh.position = Vec3::new(0.0, 0.25, 4.0);
+        ht2_mesh.position = Vec3::new(0.0, 0.25, 4.0);
         self.meshes.as_mut().unwrap().insert("ht2".to_string(), ht2_mesh);
     }
 

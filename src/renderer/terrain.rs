@@ -1,6 +1,5 @@
 use std::ffi::CString;
 use std::ptr::null;
-use dae_parser::Document;
 use gfx_maths::{Mat4, Quaternion, Vec3};
 use libsex::bindings::*;
 use crate::renderer::H2eckRenderer;
@@ -21,8 +20,7 @@ impl Terrain {
         // get shader
         let shader = renderer.shaders.as_mut().unwrap().get("terrain").ok_or("Could not find shader")?.clone();
         // load mesh
-        let document = Document::from_file(format!("{}/terrains/{}.dae", renderer.data_dir, name)).map_err(|e| format!("failed to load terrain: {:?}", e))?;
-        let mut mesh = Mesh::new(document, "Plane_001-mesh", &shader, renderer).map_err(|e| format!("failed to load terrain: {:?}", e))?;
+        let mut mesh = Mesh::new(format!("{}/terrains/{}.glb", renderer.data_dir, name).as_str(), "Plane.001", &shader, renderer).map_err(|e| format!("failed to load terrain: {:?}", e))?;
         mesh.scale = Vec3::new(20.0, 20.0, 20.0);
         // load textures
         let mixmap = Texture::new_from_name(
