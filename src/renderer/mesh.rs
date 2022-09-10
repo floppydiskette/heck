@@ -307,10 +307,27 @@ impl Mesh {
             glEnableVertexAttribArray(0);
             glBindVertexArray(self.vao);
             if let Some(texture) = texture {
+                // send the material struct to the shader
+                let material = texture.material;
+                let material_diffuse = glGetUniformLocation(shader.program, CString::new("u_material.diffuse").unwrap().as_ptr());
+                let material_roughness = glGetUniformLocation(shader.program, CString::new("u_material.roughness").unwrap().as_ptr());
+                let material_metallic = glGetUniformLocation(shader.program, CString::new("u_material.metallic").unwrap().as_ptr());
+                let material_normal = glGetUniformLocation(shader.program, CString::new("u_material.normal").unwrap().as_ptr());
+
+                // load textures
                 glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, texture.diffuse_texture);
-                glUniform1i(glGetUniformLocation(shader.program, CString::new("u_texture").unwrap().as_ptr()), 0);
-                //DON'T PRINT OPEN GL ERRORS HERE! BIGGEST MISTAKE OF MY LIFE
+                glBindTexture(GL_TEXTURE_2D, material.diffuse_texture);
+                glUniform1i(material_diffuse, 0);
+                glActiveTexture(GL_TEXTURE1);
+                glBindTexture(GL_TEXTURE_2D, material.roughness_texture);
+                glUniform1i(material_roughness, 1);
+                glActiveTexture(GL_TEXTURE2);
+                glBindTexture(GL_TEXTURE_2D, material.metallic_texture);
+                glUniform1i(material_metallic, 2);
+                glActiveTexture(GL_TEXTURE3);
+                glBindTexture(GL_TEXTURE_2D, material.normal_texture);
+                glUniform1i(material_normal, 3);
+
             }
 
 
@@ -331,6 +348,13 @@ impl Mesh {
             // send the model matrix to the shader
             let model_loc = glGetUniformLocation(shader.program, CString::new("u_model").unwrap().as_ptr());
             glUniformMatrix4fv(model_loc, 1, GL_FALSE as GLboolean, model_matrix.as_ptr());
+
+            // send the camera position to the shader
+            let camera_pos_loc = glGetUniformLocation(shader.program, CString::new("u_camera_pos").unwrap().as_ptr());
+            glUniform3f(camera_pos_loc,
+                        renderer.camera.as_mut().unwrap().get_position().x,
+                        renderer.camera.as_mut().unwrap().get_position().y,
+                        renderer.camera.as_mut().unwrap().get_position().z);
 
             glDrawElements(GL_TRIANGLES, self.num_indices as GLsizei, GL_UNSIGNED_INT, null());
             glDisableVertexAttribArray(0);

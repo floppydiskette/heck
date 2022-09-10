@@ -5,10 +5,19 @@ use crate::renderer::H2eckRenderer;
 #[derive(Clone, Copy)]
 pub struct Texture {
     pub dimensions: (u32, u32),
+    pub material: GLMaterial,
     pub diffuse_texture: GLuint,
     pub normal_texture: GLuint,
     pub metallic_texture: GLuint,
     pub roughness_texture: GLuint,
+}
+
+#[derive(Clone, Copy)]
+pub struct GLMaterial {
+    pub diffuse_texture: GLuint,
+    pub metallic_texture: GLuint,
+    pub roughness_texture: GLuint,
+    pub normal_texture: GLuint,
 }
 
 #[derive(Clone, Copy)]
@@ -75,11 +84,68 @@ impl Texture {
                 glGenerateMipmap(GL_TEXTURE_2D);
             }
 
-            // todo: for now we're only using diffuse textures
+            if !simple {
+
+                // normal texture
+                let normal_data = load_image(normal_file_name.as_str())?;
+                unsafe {
+                    glBindTexture(GL_TEXTURE_2D, normal_texture);
+                    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA as i32, normal_data.dimensions.0 as i32, normal_data.dimensions.1 as i32, 0, GL_RGBA, GL_UNSIGNED_BYTE, normal_data.data.as_ptr() as *const GLvoid);
+
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR as i32);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR as i32);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT as i32);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT as i32);
+                    glGenerateMipmap(GL_TEXTURE_2D);
+                }
+
+                // metallic texture
+                let metallic_data = load_image(metallic_file_name.as_str())?;
+                unsafe {
+                    glBindTexture(GL_TEXTURE_2D, metallic_texture);
+                    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA as i32, metallic_data.dimensions.0 as i32, metallic_data.dimensions.1 as i32, 0, GL_RGBA, GL_UNSIGNED_BYTE, metallic_data.data.as_ptr() as *const GLvoid);
+
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR as i32);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR as i32);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT as i32);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT as i32);
+                    glGenerateMipmap(GL_TEXTURE_2D);
+                }
+
+                // roughness texture
+                let roughness_data = load_image(roughness_file_name.as_str())?;
+                unsafe {
+                    glBindTexture(GL_TEXTURE_2D, roughness_texture);
+                    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA as i32, roughness_data.dimensions.0 as i32, roughness_data.dimensions.1 as i32, 0, GL_RGBA, GL_UNSIGNED_BYTE, roughness_data.data.as_ptr() as *const GLvoid);
+
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR as i32);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR as i32);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT as i32);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT as i32);
+                    glGenerateMipmap(GL_TEXTURE_2D);
+                }
+            }
+
+            let material = if !simple {
+                GLMaterial {
+                    diffuse_texture,
+                    metallic_texture,
+                    roughness_texture,
+                    normal_texture
+                }
+            } else {
+                GLMaterial {
+                    diffuse_texture,
+                    metallic_texture: 0,
+                    roughness_texture: 0,
+                    normal_texture: 0
+                }
+            };
 
             // return
             Ok(Texture {
                 dimensions: diffuse_data.dimensions,
+                material,
                 diffuse_texture,
                 normal_texture,
                 metallic_texture,

@@ -14,6 +14,8 @@ uniform sampler2D tex3; // a
 
 uniform float scale = 1;
 
+uniform vec3 u_camera_pos;
+
 vec3 calculate_ambient(float strength, vec3 colour) {
     return strength * colour;
 }
@@ -21,6 +23,8 @@ vec3 calculate_ambient(float strength, vec3 colour) {
 // uses the mixmap to blend between the 4 textures
 // applies scale to uv
 void main() {
+    float specular_strength = 0.5;
+
     // scale the uv
     vec2 scaled_uv = uv * scale;
 
@@ -46,9 +50,15 @@ void main() {
     float diff = max(dot(norm, light_dir), 0.0);
     vec3 diffuse = diff * light_colour;
 
+    vec3 view_dir = normalize(u_camera_pos - frag_pos);
+    vec3 reflect_dir = reflect(-light_dir, norm);
+
+    float spec = pow(max(dot(view_dir, reflect_dir), 0.0), 32);
+    vec3 specular = specular_strength * spec * light_colour;
+
     vec3 ambient = calculate_ambient(0.1, light_colour);
 
-    vec3 result = (ambient + diffuse) * a.rgb;
+    vec3 result = (ambient + diffuse + specular) * a.rgb;
 
     o_colour = vec4(result, 1.0);
 }

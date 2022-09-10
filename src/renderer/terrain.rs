@@ -83,6 +83,18 @@ impl Terrain {
             let mvp_loc = glGetUniformLocation(self.shader.program, CString::new("u_mvp").unwrap().as_ptr());
             glUniformMatrix4fv(mvp_loc, 1, GL_FALSE as GLboolean, mvp.as_ptr());
 
+
+            // send the model matrix to the shader
+            let model_loc = glGetUniformLocation(self.shader.program, CString::new("u_model").unwrap().as_ptr());
+            glUniformMatrix4fv(model_loc, 1, GL_FALSE as GLboolean, model_matrix.as_ptr());
+
+            // send the camera position to the shader
+            let camera_pos_loc = glGetUniformLocation(self.shader.program, CString::new("u_camera_pos").unwrap().as_ptr());
+            glUniform3f(camera_pos_loc,
+                        renderer.camera.as_mut().unwrap().get_position().x,
+                        renderer.camera.as_mut().unwrap().get_position().y,
+                        renderer.camera.as_mut().unwrap().get_position().z);
+
             glDrawElements(GL_TRIANGLES, self.mesh.num_indices as GLsizei, GL_UNSIGNED_INT, null());
             glDisableVertexAttribArray(0);
 
