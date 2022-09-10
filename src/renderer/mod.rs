@@ -112,7 +112,7 @@ impl H2eckRenderer {
         self.terrains.as_mut().unwrap().insert("ll_main".to_string(), terrain);
 
         let mut ht2_mesh =
-            Mesh::new("internal/models/ht2.dae", "ht2-mesh",
+            Mesh::new(format!("{}/models/ht2.glb", self.data_dir).as_str(), "ht2",
                  &self.shaders.as_mut().unwrap().get("basic").unwrap().clone(), self)
             .expect("failed to create ht2 mesh");
         ht2_mesh.position = Vec3::new(0.0, 0.25, 4.0);

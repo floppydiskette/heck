@@ -20,7 +20,7 @@ impl Terrain {
         // get shader
         let shader = renderer.shaders.as_mut().unwrap().get("terrain").ok_or("Could not find shader")?.clone();
         // load mesh
-        let mut mesh = Mesh::new(format!("{}/terrains/{}.glb", renderer.data_dir, name).as_str(), "Plane.001", &shader, renderer).map_err(|e| format!("failed to load terrain: {:?}", e))?;
+        let mut mesh = Mesh::new(format!("{}/terrains/{}.glb", renderer.data_dir, name).as_str(), "terrain", &shader, renderer).map_err(|e| format!("failed to load terrain: {:?}", e))?;
         mesh.scale = Vec3::new(20.0, 20.0, 20.0);
         // load textures
         let mixmap = Texture::new_from_name(

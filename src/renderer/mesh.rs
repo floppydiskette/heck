@@ -59,6 +59,7 @@ impl Mesh {
         let mut vertices_array = Vec::new();
         let mut indices_array = Vec::new();
         let mut uvs_array = Vec::new();
+        let mut normals_array = Vec::new();
         for primitive in mesh.primitives() {
             // get the vertex positions
             let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
@@ -74,6 +75,10 @@ impl Mesh {
             let tex_coords = tex_coords.into_f32();
             let tex_coords = tex_coords.collect::<Vec<_>>();
 
+            // get the normals
+            let normals = reader.read_normals().ok_or(MeshError::MeshComponentNotFound(MeshComponent::SourceMap))?;
+            let normals = normals.collect::<Vec<_>>();
+
             // add the vertices (with each grouping of three f32s as three separate f32s)
             vertices_array.extend(positions.iter().flat_map(|v| vec![v[0], v[1], v[2]]));
 
@@ -82,6 +87,9 @@ impl Mesh {
 
             // add the uvs (with each grouping of two f32s as two separate f32s)
             uvs_array.extend(tex_coords.iter().flat_map(|v| vec![v[0], v[1]]));
+
+            // add the normals (with each grouping of three f32s as three separate f32s)
+            normals_array.extend(normals.iter().flat_map(|v| vec![v[0], v[1], v[2]]));
         }
 
         // get the u32 data from the mesh
@@ -117,6 +125,16 @@ impl Mesh {
             let uv = glGetAttribLocation(shader.program, CString::new("in_uv").unwrap().as_ptr());
             glVertexAttribPointer(uv as GLuint, 2, GL_FLOAT, GL_TRUE as GLboolean, 0, null());
             glEnableVertexAttribArray(1);
+
+            // normals
+            let mut normalbo = 0 as GLuint;
+            glGenBuffers(1, &mut normalbo);
+            glBindBuffer(GL_ARRAY_BUFFER, normalbo);
+            glBufferData(GL_ARRAY_BUFFER, (normals_array.len() * std::mem::size_of::<GLfloat>()) as GLsizeiptr, normals_array.as_ptr() as *const GLvoid, GL_STATIC_DRAW);
+            // vertex normals for fragment shader
+            let normal = glGetAttribLocation(shader.program, CString::new("in_normal").unwrap().as_ptr());
+            glVertexAttribPointer(normal as GLuint, 3, GL_FLOAT, GL_TRUE as GLboolean, 0, null());
+            glEnableVertexAttribArray(2);
 
 
             // now the indices
@@ -305,6 +323,10 @@ impl Mesh {
             // send the mvp matrix to the shader
             let mvp_loc = glGetUniformLocation(shader.program, CString::new("u_mvp").unwrap().as_ptr());
             glUniformMatrix4fv(mvp_loc, 1, GL_FALSE as GLboolean, mvp.as_ptr());
+
+            // send the model matrix to the shader
+            let model_loc = glGetUniformLocation(shader.program, CString::new("u_model").unwrap().as_ptr());
+            glUniformMatrix4fv(model_loc, 1, GL_FALSE as GLboolean, model_matrix.as_ptr());
 
             glDrawElements(GL_TRIANGLES, self.num_indices as GLsizei, GL_UNSIGNED_INT, null());
             glDisableVertexAttribArray(0);
