@@ -96,12 +96,16 @@ impl Component for MeshRenderer {
     fn get_parameters(&self) -> Vec<Parameter> {
         vec![
             Parameter::new("mesh", Box::new(self.mesh.clone())),
+            Parameter::new("shader", Box::new(self.shader.clone())),
+            Parameter::new("texture", Box::new(self.texture.clone())),
         ]
     }
 
     fn get_parameter(&self, parameter_name: &str) -> Option<Parameter> {
         match parameter_name {
             "mesh" => Some(Parameter::new("mesh", Box::new(self.mesh.clone()))),
+            "shader" => Some(Parameter::new("shader", Box::new(self.shader.clone()))),
+            "texture" => Some(Parameter::new("texture", Box::new(self.texture.clone()))),
             _ => None,
         }
     }
@@ -113,6 +117,16 @@ impl Component for MeshRenderer {
                     self.mesh = *value.clone();
                 }
             }
+            "shader" => {
+                if let Ok(value) = value.downcast::<String>() {
+                    self.shader = *value.clone();
+                }
+            }
+            "texture" => {
+                if let Ok(value) = value.downcast::<String>() {
+                    self.texture = *value.clone();
+                }
+            }
             _ => {}
         }
     }
@@ -120,6 +134,8 @@ impl Component for MeshRenderer {
     fn clone(&self) -> Box<dyn Component> {
         Box::new(MeshRenderer {
             mesh: self.mesh.clone(),
+            shader: self.shader.clone(),
+            texture: self.texture.clone(),
             component_type: self.component_type.clone(),
         })
     }
@@ -129,6 +145,8 @@ impl Default for MeshRenderer {
     fn default() -> Self {
         Self {
             mesh: String::new(),
+            shader: "basic".to_string(),
+            texture: "default".to_string(),
             component_type: COMPONENT_TYPE_MESH_RENDERER.clone(),
         }
     }

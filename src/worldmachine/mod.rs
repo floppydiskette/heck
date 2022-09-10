@@ -184,7 +184,7 @@ impl WorldMachine {
     pub fn select(&mut self, mouse_x: f32, mouse_y: f32, renderer: &mut H2eckRenderer) {
     }
 
-    pub fn render(&mut self, renderer: &mut H2eckRenderer, selection_buffer: bool) {
+    pub fn render(&mut self, renderer: &mut H2eckRenderer) {
         self.counter += 1.0;
         for entity in self.world.entities.iter_mut() {
             if let Some(mesh_renderer) = entity.get_component(COMPONENT_TYPE_MESH_RENDERER.clone()) {
@@ -197,7 +197,20 @@ impl WorldMachine {
                     let mesh = meshes.get(&*mesh_name);
                     if let Some(mesh) = mesh {
                         let mut mesh = *mesh;
-                        let shader = shaders.get("red").unwrap();
+                        let shader = mesh_renderer.get_parameter("shader").unwrap();
+                        let texture = mesh_renderer.get_parameter("texture").unwrap();
+                        let shader_name = shader.value.downcast::<String>().unwrap();
+                        let texture_name = texture.value.downcast::<String>().unwrap();
+                        let shaders = renderer.shaders.clone().unwrap();
+                        let textures = renderer.textures.clone().unwrap();
+                        let shader = shaders.get(&*shader_name);
+                        let texture = textures.get(&*texture_name);
+                        if shader.is_none() || texture.is_none() {
+                            error!("shader or texture not found: {:?} {:?}", shader_name, texture_name);
+                            continue;
+                        }
+                        let shader = shader.unwrap();
+                        let texture = texture.unwrap();
 
                         // if this entity has a transform, apply it
                         if let Some(transform) = entity.get_component(COMPONENT_TYPE_TRANSFORM.clone()) {
@@ -219,11 +232,7 @@ impl WorldMachine {
                         // add a bit of rotation to the transform to make things more interesting
                         //entity.set_component_parameter(COMPONENT_TYPE_TRANSFORM.clone(), "rotation", Box::new(Quaternion::from_euler_angles_zyx(&Vec3::new(0.0, self.counter, 0.0))));
 
-                        if selection_buffer {
-                            mesh.render(renderer, shader, false, Some(entity.get_id()));
-                        } else {
-                            mesh.render(renderer, shader, false, None);
-                        }
+                        mesh.render(renderer, shader, Some(texture));
                     }
                 }
             }

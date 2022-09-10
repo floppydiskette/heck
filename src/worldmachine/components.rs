@@ -20,6 +20,8 @@ pub struct Transform {
 
 pub struct MeshRenderer {
     pub mesh: String,
+    pub shader: String,
+    pub texture: String,
     // component stuff
     pub(crate) component_type: ComponentType,
 }

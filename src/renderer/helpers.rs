@@ -63,3 +63,14 @@ pub fn rotate_vector_by_quaternion(vector: Vec3, quat: Quaternion) -> Vec3 {
     quat_v = conjugate_quaternion(quat) * quat_v;
     Vec3::new(quat_v.x, quat_v.y, quat_v.z)
 }
+
+// returns the corrected uvs in the same order as the vertices
+pub fn fix_colladas_dumb_storage_method(uv_array: Vec<f32>, uv_indices: Vec<u32>) -> Vec<f32> {
+    let mut uvs = Vec::new();
+    for i in 0..uv_indices.len() {
+        let index = uv_indices[i] as usize;
+        uvs.push(uv_array[index]);
+
+    }
+    uv_array
+}

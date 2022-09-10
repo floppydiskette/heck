@@ -5,6 +5,8 @@ pub mod shader;
 pub mod camera;
 pub mod keyboard;
 pub mod raycasting;
+pub mod texture;
+pub mod terrain;
 
 use std::collections::HashMap;
 use std::ffi::c_void;
@@ -17,11 +19,14 @@ use crate::renderer::keyboard::KeyboardManager;
 use crate::renderer::mesh::Mesh;
 use crate::renderer::raycasting::Ray;
 use crate::renderer::shader::Shader;
+use crate::renderer::terrain::Terrain;
+use crate::renderer::texture::Texture;
 use crate::renderer::types::*;
 use crate::worldmachine::{World, WorldMachine};
 
 pub struct H2eckRenderer {
     pub state: H2eckState,
+    pub data_dir: String,
     pub camera: Option<Camera>,
     pub keyboard: KeyboardManager,
     pub last_mouse_position: (f32, f32),
@@ -29,6 +34,8 @@ pub struct H2eckRenderer {
     pub current_shader: Option<String>,
     pub shaders: Option<HashMap<String, Shader>>,
     pub meshes: Option<HashMap<String, Mesh>>,
+    pub textures: Option<HashMap<String, Texture>>,
+    pub terrains: Option<HashMap<String, Terrain>>,
     pub selection_framebuffer: isize,
     pub selection_texture: isize,
     pub selected_entity: isize,
@@ -43,6 +50,7 @@ impl Default for H2eckRenderer {
     fn default() -> Self {
         Self {
             state: H2eckState::Welcome,
+            data_dir: String::new(),
             camera: Option::None,
             keyboard: KeyboardManager::default(),
             last_mouse_position: (0.0, 0.0),
@@ -50,6 +58,8 @@ impl Default for H2eckRenderer {
             current_shader: Option::None,
             shaders: Some(HashMap::new()),
             meshes: Some(HashMap::new()),
+            textures: Some(HashMap::new()),
+            terrains: Some(HashMap::new()),
             selection_framebuffer: -1,
             selection_texture: -1,
             selected_entity: -1,
@@ -64,12 +74,15 @@ impl H2eckRenderer {
         let camera = Camera::new(Vec2::new(width as f32, height as f32), 90.0, 0.1, 100.0);
         self.camera = Option::Some(camera);
 
-        self.create_selection_framebuffer(self.camera.as_ref().unwrap().get_window_size());
+        // todo! get this from settings
+        self.data_dir = String::from("../huskyTech2/base");
+
+        //self.create_selection_framebuffer(self.camera.as_ref().unwrap().get_window_size());
 
         unsafe {
             // Configure culling
             glEnable(GL_CULL_FACE);
-            glCullFace(GL_BACK);
+            glCullFace(GL_FRONT);
             glEnable(GL_DEPTH_TEST);
             glDepthFunc(GL_LESS);
 
@@ -86,13 +99,23 @@ impl H2eckRenderer {
             }
         }
 
-        Shader::load_shader(self, "red").expect("failed to load shader");
-        Shader::load_shader(self, "picking").expect("failed to load shader (picking)");
+        Shader::load_shader(self, "basic").expect("failed to load shader");
+        Shader::load_shader(self, "terrain").expect("failed to load shader (terrain)");
+        Texture::load_texture("default", "default/default", self).expect("failed to load default texture");
+        Texture::load_texture("grass1", "terrain/grass1", self).expect("failed to load grass1 texture");
+        Texture::load_texture("dirt1", "terrain/dirt1", self).expect("failed to load dirt1 texture");
+        Texture::load_texture("rock1", "terrain/rock1", self).expect("failed to load rock1 texture");
+        Texture::load_texture("sand1", "terrain/sand1", self).expect("failed to load sand1 texture");
+
+        let terrain = Terrain::new_from_name("ll_main", self).expect("failed to load terrain");
+
+        self.terrains = Some(HashMap::new());
+        self.terrains.as_mut().unwrap().insert("ll_main".to_string(), terrain);
+
         let ht2_document = Document::from_file("internal/models/ht2.dae").expect("failed to load ht2.dae");
         let mut ht2_mesh =
             Mesh::new(ht2_document, "ht2-mesh",
-                 Option::None,
-                 &self.shaders.as_mut().unwrap().get("red").unwrap().clone(), self)
+                 &self.shaders.as_mut().unwrap().get("basic").unwrap().clone(), self)
             .expect("failed to create ht2 mesh");
         //ht2_mesh.position = Vec3::new(0.0, 0.25, 4.0);
         self.meshes.as_mut().unwrap().insert("ht2".to_string(), ht2_mesh);
@@ -107,12 +130,19 @@ impl H2eckRenderer {
 
             let mut texture = 0;
 
+            let mut depth_texture = 0;
+
             glGenTextures(1, &mut texture);
             glBindTexture(GL_TEXTURE_2D, texture);
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32UI as i32, window_size.x as i32, window_size.y as i32, 0, GL_RGB_INTEGER, GL_UNSIGNED_INT, std::ptr::null());
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST as i32);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST as i32);
             glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+
+            glGenTextures(1, &mut depth_texture);
+            glBindTexture(GL_TEXTURE_2D, depth_texture);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F as i32, window_size.x as i32, window_size.y as i32, 0, GL_DEPTH_COMPONENT, GL_FLOAT, std::ptr::null());
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth_texture, 0);
 
             if glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE {
                 error!("failed to create selection framebuffer");
@@ -122,6 +152,7 @@ impl H2eckRenderer {
             self.selection_texture = texture as isize;
 
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glBindTexture(GL_TEXTURE_2D, 0);
         }
     }
 
@@ -225,10 +256,14 @@ impl H2eckRenderer {
             glClearColor(0.1, 0.0, 0.1, 1.0);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            // render first without the selection framebuffer
-            worldmachine.render(self, false);
-            // render again with the selection framebuffer
-            worldmachine.render(self, true);
+            if let Some(terrains) = self.terrains.clone() {
+                // render the terrains
+                for terrain in terrains {
+                    terrain.1.render(self);
+                }
+            }
+
+            worldmachine.render(self);
 
             glFlush();
         }

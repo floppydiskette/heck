@@ -3,8 +3,9 @@ use std::ptr::null;
 use dae_parser::{ArrayElement, Document, Geometry, Source, Vertices};
 use gfx_maths::*;
 use libsex::bindings::*;
-use crate::renderer::H2eckRenderer;
+use crate::renderer::{H2eckRenderer, helpers};
 use crate::renderer::shader::Shader;
+use crate::renderer::texture::Texture;
 use crate::worldmachine::components::Brush;
 
 #[derive(Clone, Copy, Debug)]
@@ -48,7 +49,7 @@ pub enum MeshError {
 }
 
 impl Mesh {
-    pub fn new(doc: Document, mesh_name: &str, texture_location: Option<&str>, shader: &Shader, renderer: &mut H2eckRenderer) -> Result<Self, MeshError> {
+    pub fn new(doc: Document, mesh_name: &str, shader: &Shader, renderer: &mut H2eckRenderer) -> Result<Self, MeshError> {
         // load from dae
         let geom = doc.local_map::<Geometry>().map_err(|_| MeshError::MeshNotFound)?.get_str(&*mesh_name).ok_or(MeshError::MeshNotFound)?;
         let mesh = geom.element.as_mesh().ok_or(MeshError::MeshComponentNotFound(MeshComponent::Mesh))?;
@@ -85,6 +86,21 @@ impl Mesh {
             i += 3;
         }
 
+        let mut uv_array = match uv_array {
+            ArrayElement::Float(uvarray) => {
+                let vert_a = if let ArrayElement::Float(a) = array.clone() {
+                        a
+                    } else {
+                        return Err(MeshError::UnsupportedArrayType);
+                    };
+                let new_array = helpers::fix_colladas_dumb_storage_method(uvarray.val.to_vec(), new_uv_indices);
+                debug!("uv array: {:?}", new_array);
+                debug!("vert array: {:?}", vert_a.val);
+                new_array
+            }
+            _ => return Err(MeshError::UnsupportedArrayType),
+        };
+
 
         let indices = new_indices;
         let num_indices = indices.len();
@@ -108,11 +124,13 @@ impl Mesh {
                 debug!("len: {}", a.val.len());
                 debug!("type: float");
                 size = a.val.len() * std::mem::size_of::<f32>();
+
                 glBufferData(GL_ARRAY_BUFFER, size as GLsizeiptr, a.val.as_ptr() as *const GLvoid, GL_STATIC_DRAW);
             } else if let ArrayElement::Int(a) = array {
                 debug!("len: {}", a.val.len());
                 debug!("type: int");
                 size = a.val.len() * std::mem::size_of::<i32>();
+                error!("int array not supported");
             } else {
                 panic!("unsupported array type");
             }
@@ -121,21 +139,18 @@ impl Mesh {
             glVertexAttribPointer(pos as GLuint, 3, GL_FLOAT, GL_FALSE as GLboolean, 0, null());
             glEnableVertexAttribArray(0);
 
-            //// uvs
-            //glGenBuffers(1, &mut uvbo);
-            //glBindBuffer(GL_ARRAY_BUFFER, uvbo);
-            //if let ArrayElement::Float(a) = uv_array {
-            //    debug!("len: {}", a.val.len());
-            //    debug!("type: float");
-            //    size = a.val.len() * std::mem::size_of::<f32>();
-            //    glBufferData(GL_ARRAY_BUFFER, size as GLsizeiptr, a.val.as_ptr() as *const GLvoid, GL_STATIC_DRAW);
-            //} else {
-            //    panic!("unsupported array type for uvs");
-            //}
-            //// vertex uvs for fragment shader
-            //let uv = glGetAttribLocation(shader.program, CString::new("in_uv").unwrap().as_ptr());
-            //glVertexAttribPointer(uv as GLuint, 2, GL_FLOAT, GL_FALSE as GLboolean, 0, null());
-            //glEnableVertexAttribArray(1);
+            // uvs
+            glGenBuffers(1, &mut uvbo);
+            glBindBuffer(GL_ARRAY_BUFFER, uvbo);
+            debug!("uvs");
+            debug!("len: {}", uv_array.len());
+            debug!("type: float");
+            size = uv_array.len() * std::mem::size_of::<f32>();
+            glBufferData(GL_ARRAY_BUFFER, size as GLsizeiptr, uv_array.as_ptr() as *const GLvoid, GL_STATIC_DRAW);
+            // vertex uvs for fragment shader
+            let uv = glGetAttribLocation(shader.program, CString::new("in_uv").unwrap().as_ptr());
+            glVertexAttribPointer(uv as GLuint, 2, GL_FLOAT, GL_TRUE as GLboolean, 0, null());
+            glEnableVertexAttribArray(1);
 
 
             // now the indices
@@ -260,6 +275,19 @@ impl Mesh {
             6, 7, 3,
         ];
 
+        let uvs = vec![
+            // front
+            0.0, 0.0,
+            1.0, 0.0,
+            1.0, 1.0,
+            0.0, 1.0,
+            // back
+            0.0, 0.0,
+            1.0, 0.0,
+            1.0, 1.0,
+            0.0, 1.0,
+        ];
+
         let mut vao = 0;
         let mut vbo = 0;
         let mut ebo = 0;
@@ -286,21 +314,14 @@ impl Mesh {
             glVertexAttribPointer(pos as GLuint, 3, GL_FLOAT, GL_FALSE as GLboolean, 0, null());
             glEnableVertexAttribArray(0);
 
-            //// uvs
-            //glGenBuffers(1, &mut uvbo);
-            //glBindBuffer(GL_ARRAY_BUFFER, uvbo);
-            //if let ArrayElement::Float(a) = uv_array {
-            //    debug!("len: {}", a.val.len());
-            //    debug!("type: float");
-            //    size = a.val.len() * std::mem::size_of::<f32>();
-            //    glBufferData(GL_ARRAY_BUFFER, size as GLsizeiptr, a.val.as_ptr() as *const GLvoid, GL_STATIC_DRAW);
-            //} else {
-            //    panic!("unsupported array type for uvs");
-            //}
-            //// vertex uvs for fragment shader
-            //let uv = glGetAttribLocation(shader.program, CString::new("in_uv").unwrap().as_ptr());
-            //glVertexAttribPointer(uv as GLuint, 2, GL_FLOAT, GL_FALSE as GLboolean, 0, null());
-            //glEnableVertexAttribArray(1);
+            // uvs
+            glGenBuffers(1, &mut uvbo);
+            glBindBuffer(GL_ARRAY_BUFFER, uvbo);
+            glBufferData(GL_ARRAY_BUFFER, (uvs.len() * std::mem::size_of::<f32>()) as GLsizeiptr, uvs.as_ptr() as *const GLvoid, GL_STATIC_DRAW);
+            // vertex uvs for fragment shader
+            let uv = glGetAttribLocation(shader.program, CString::new("in_uv").unwrap().as_ptr());
+            glVertexAttribPointer(uv as GLuint, 2, GL_FLOAT, GL_FALSE as GLboolean, 0, null());
+            glEnableVertexAttribArray(1);
 
 
             // now the indices
@@ -336,7 +357,7 @@ impl Mesh {
         })
     }
 
-    pub fn render(&self, renderer: &mut H2eckRenderer, shader: &Shader, pass_texture: bool, selection_buffer: Option<u32>) {
+    pub fn render(&self, renderer: &mut H2eckRenderer, shader: &Shader, texture: Option<&Texture>) {
         // load the shader
         if renderer.current_shader != Some(shader.name.clone()) {
             unsafe {
@@ -347,11 +368,11 @@ impl Mesh {
         unsafe {
             glEnableVertexAttribArray(0);
             glBindVertexArray(self.vao);
-            if pass_texture {
-                //glActiveTexture(GL_TEXTURE0);
-                //glBindTexture(GL_TEXTURE_2D, self.texture.unwrap().diffuse_texture);
-                //glUniform1i(glGetUniformLocation(renderer.shaders.as_mut().unwrap()[shader_index].program, CString::new("u_texture").unwrap().as_ptr()), 0);
-                // DON'T PRINT OPEN GL ERRORS HERE! BIGGEST MISTAKE OF MY LIFE
+            if let Some(texture) = texture {
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, texture.diffuse_texture);
+                glUniform1i(glGetUniformLocation(shader.program, CString::new("u_texture").unwrap().as_ptr()), 0);
+                //DON'T PRINT OPEN GL ERRORS HERE! BIGGEST MISTAKE OF MY LIFE
             }
 
             // transformation time!
@@ -376,68 +397,6 @@ impl Mesh {
             while error != GL_NO_ERROR {
                 error!("OpenGL error while rendering: {}", error);
                 error = glGetError();
-            }
-        }
-
-        // secondly, render the selection buffer
-        if let Some(entity_id) = selection_buffer {
-            unsafe {
-                glBindFramebuffer(GL_FRAMEBUFFER, renderer.selection_framebuffer as GLuint);
-
-                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-                // get the "picking" shader
-                let picking_shader = renderer.shaders.as_mut().unwrap().get("picking").unwrap();
-
-                // load the shader
-                if renderer.current_shader != Some(picking_shader.name.clone()) {
-                    glUseProgram(picking_shader.program);
-                    renderer.current_shader = Some(picking_shader.name.clone());
-                }
-
-                // load the model and transform it again
-                glEnableVertexAttribArray(0);
-                glBindVertexArray(self.vao);
-                if pass_texture {
-                    //glActiveTexture(GL_TEXTURE0);
-                    //glBindTexture(GL_TEXTURE_2D, self.texture.unwrap().diffuse_texture);
-                    //glUniform1i(glGetUniformLocation(renderer.shaders.as_mut().unwrap()[shader_index].program, CString::new("u_texture").unwrap().as_ptr()), 0);
-                    // DON'T PRINT OPEN GL ERRORS HERE! BIGGEST MISTAKE OF MY LIFE
-                }
-
-                // transformation time!
-                let camera_projection = renderer.camera.as_mut().unwrap().get_projection();
-                let camera_view = renderer.camera.as_mut().unwrap().get_view();
-
-                // calculate the model matrix
-                let model_matrix = calculate_model_matrix(self.position, self.rotation, self.scale);
-
-                // calculate the mvp matrix
-                let mvp = camera_projection * camera_view * model_matrix;
-
-                // send the mvp matrix to the shader
-                let mvp_loc = glGetUniformLocation(shader.program, CString::new("u_mvp").unwrap().as_ptr());
-                glUniformMatrix4fv(mvp_loc, 1, GL_TRUE as GLboolean, mvp.as_ptr());
-                // send the entity id to the shader
-                let entity_id_loc = glGetUniformLocation(shader.program, CString::new("u_entity_id").unwrap().as_ptr());
-                glUniform1ui(entity_id_loc, entity_id as GLuint);
-
-                glDrawElements(GL_TRIANGLES, self.num_indices as GLsizei, GL_UNSIGNED_INT, null());
-                glDisableVertexAttribArray(0);
-
-                // set uniform back to default
-                let entity_id_loc = glGetUniformLocation(shader.program, CString::new("u_entity_id").unwrap().as_ptr());
-                glUniform1ui(entity_id_loc, 0);
-
-                // print opengl errors
-                let mut error = glGetError();
-                while error != GL_NO_ERROR {
-                    error!("OpenGL error while rendering (selection buffer): {}", error);
-                    error = glGetError();
-                }
-
-                // reset the framebuffer
-                glBindFramebuffer(GL_FRAMEBUFFER, 0);
             }
         }
     }
