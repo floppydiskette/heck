@@ -35,10 +35,13 @@ pub struct H2eckRenderer {
     pub meshes: Option<HashMap<String, Mesh>>,
     pub textures: Option<HashMap<String, Texture>>,
     pub terrains: Option<HashMap<String, Terrain>>,
-    pub selection_framebuffer: isize,
-    pub selection_texture: isize,
+    pub gbuffer: usize,
+    pub g_position: usize,
+    pub g_normal: usize,
+    pub g_albedo_spec: usize,
     pub selected_entity: isize,
     pub initialised: bool,
+    pub shading: bool,
 }
 
 pub enum H2eckState {
@@ -59,10 +62,13 @@ impl Default for H2eckRenderer {
             meshes: Some(HashMap::new()),
             textures: Some(HashMap::new()),
             terrains: Some(HashMap::new()),
-            selection_framebuffer: -1,
-            selection_texture: -1,
+            gbuffer: 0,
+            g_position: 0,
+            g_normal: 0,
+            g_albedo_spec: 0,
             selected_entity: -1,
             initialised: false,
+            shading: true,
         }
     }
 }
@@ -117,41 +123,6 @@ impl H2eckRenderer {
             .expect("failed to create ht2 mesh");
         ht2_mesh.position = Vec3::new(0.0, 0.25, 4.0);
         self.meshes.as_mut().unwrap().insert("ht2".to_string(), ht2_mesh);
-    }
-
-    fn create_selection_framebuffer(&mut self, window_size: Vec2) {
-        unsafe {
-            let mut framebuffer = 0;
-
-            glGenFramebuffers(1, &mut framebuffer);
-            glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-
-            let mut texture = 0;
-
-            let mut depth_texture = 0;
-
-            glGenTextures(1, &mut texture);
-            glBindTexture(GL_TEXTURE_2D, texture);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32UI as i32, window_size.x as i32, window_size.y as i32, 0, GL_RGB_INTEGER, GL_UNSIGNED_INT, std::ptr::null());
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST as i32);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST as i32);
-            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
-
-            glGenTextures(1, &mut depth_texture);
-            glBindTexture(GL_TEXTURE_2D, depth_texture);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F as i32, window_size.x as i32, window_size.y as i32, 0, GL_DEPTH_COMPONENT, GL_FLOAT, std::ptr::null());
-            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth_texture, 0);
-
-            if glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE {
-                error!("failed to create selection framebuffer");
-            }
-
-            self.selection_framebuffer = framebuffer as isize;
-            self.selection_texture = texture as isize;
-
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
-            glBindTexture(GL_TEXTURE_2D, 0);
-        }
     }
 
     pub fn process_key(&mut self, key: Key, value: bool) {
@@ -221,21 +192,6 @@ impl H2eckRenderer {
         let mut rotation = Quaternion::identity();
         rotation = Quaternion::from_euler_angles_zyx(&Vec3::new(pitch, 0.0, 0.0)) * rotation * Quaternion::from_euler_angles_zyx(&Vec3::new(0.0, yaw, 0.0));
         camera.set_rotation(rotation);
-    }
-
-    pub fn get_id_from_pixel(&self, position: Vec2) -> Option<u32> {
-        unsafe {
-            glBindFramebuffer(GL_FRAMEBUFFER, self.selection_framebuffer as u32);
-            glReadBuffer(GL_COLOR_ATTACHMENT0);
-            let mut pixel = [0, 0, 0];
-            glReadPixels(position.x as i32, position.y as i32, 1, 1, GL_RGB_INTEGER, GL_UNSIGNED_INT, pixel.as_mut_ptr() as *mut c_void);
-            glReadBuffer(GL_NONE);
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
-            if pixel[0] == 0 && pixel[1] == 0 && pixel[2] == 0 {
-                return Option::None;
-            }
-            return Option::Some(pixel[0] as u32);
-        }
     }
 
     // should be called upon the render action of our GtkGLArea

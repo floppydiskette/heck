@@ -43,6 +43,7 @@ pub enum MeshComponent {
 pub enum MeshError {
     FunctionNotImplemented,
     MeshNotFound,
+    MeshNameNotFound,
     MeshComponentNotFound(MeshComponent),
     UnsupportedArrayType,
 }
@@ -53,7 +54,8 @@ impl Mesh {
         let (document, buffers, images) = gltf::import(path).map_err(|_| MeshError::MeshNotFound)?;
 
         // get the mesh
-        let mesh = document.meshes().find(|m| m.name() == Some(mesh_name)).ok_or(MeshError::MeshNotFound)?;
+        debug!("all meshes: {:?}", document.meshes().map(|m| m.name()).collect::<Vec<_>>());
+        let mesh = document.meshes().find(|m| m.name() == Some(mesh_name)).ok_or(MeshError::MeshNameNotFound)?;
 
         // for each primitive in the mesh
         let mut vertices_array = Vec::new();
@@ -301,6 +303,7 @@ impl Mesh {
             }
         }
         unsafe {
+
             glEnableVertexAttribArray(0);
             glBindVertexArray(self.vao);
             if let Some(texture) = texture {
@@ -309,6 +312,7 @@ impl Mesh {
                 glUniform1i(glGetUniformLocation(shader.program, CString::new("u_texture").unwrap().as_ptr()), 0);
                 //DON'T PRINT OPEN GL ERRORS HERE! BIGGEST MISTAKE OF MY LIFE
             }
+
 
             // transformation time!
             let camera_projection = renderer.camera.as_mut().unwrap().get_projection();
