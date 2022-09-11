@@ -2,7 +2,7 @@ use std::ffi::CString;
 use std::ptr::null;
 use gfx_maths::*;
 use libsex::bindings::*;
-use crate::renderer::{H2eckRenderer, helpers};
+use crate::renderer::{H2eckRenderer, helpers, MAX_LIGHTS};
 use crate::renderer::shader::Shader;
 use crate::renderer::texture::Texture;
 use crate::worldmachine::components::Brush;
@@ -330,6 +330,21 @@ impl Mesh {
 
             }
 
+            // send the lights to the shader
+            let light_count = renderer.lights.len();
+            let light_count = if light_count > MAX_LIGHTS { MAX_LIGHTS } else { light_count };
+            let light_count_loc = glGetUniformLocation(shader.program, CString::new("u_light_count").unwrap().as_ptr());
+            glUniform1i(light_count_loc, light_count as i32);
+            for (i, light) in renderer.lights.iter().enumerate() {
+                if i >= MAX_LIGHTS { break; }
+                let light_pos = glGetUniformLocation(shader.program, CString::new(format!("u_lights[{}].position", i)).unwrap().as_ptr());
+                let light_color = glGetUniformLocation(shader.program, CString::new(format!("u_lights[{}].colour", i)).unwrap().as_ptr());
+                let light_intensity = glGetUniformLocation(shader.program, CString::new(format!("u_lights[{}].intensity", i)).unwrap().as_ptr());
+
+                glUniform3f(light_pos, light.position.x, light.position.y, light.position.z);
+                glUniform3f(light_color, light.color.x, light.color.y, light.color.z);
+                glUniform1f(light_intensity, light.intensity);
+            }
 
             // transformation time!
             let camera_projection = renderer.camera.as_mut().unwrap().get_projection();

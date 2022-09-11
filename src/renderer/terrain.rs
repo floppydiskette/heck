@@ -2,7 +2,7 @@ use std::ffi::CString;
 use std::ptr::null;
 use gfx_maths::{Mat4, Quaternion, Vec3};
 use libsex::bindings::*;
-use crate::renderer::H2eckRenderer;
+use crate::renderer::{H2eckRenderer, MAX_LIGHTS};
 use crate::renderer::mesh::Mesh;
 use crate::renderer::shader::Shader;
 use crate::renderer::texture::Texture;
@@ -67,6 +67,22 @@ impl Terrain {
             glUniform1i(glGetUniformLocation(self.shader.program, CString::new("tex1").unwrap().as_ptr()), 2);
             glUniform1i(glGetUniformLocation(self.shader.program, CString::new("tex2").unwrap().as_ptr()), 3);
             glUniform1i(glGetUniformLocation(self.shader.program, CString::new("tex3").unwrap().as_ptr()), 4);
+
+            // send the lights to the shader
+            let light_count = renderer.lights.len();
+            let light_count = if light_count > MAX_LIGHTS { MAX_LIGHTS } else { light_count };
+            let light_count_loc = glGetUniformLocation(self.shader.program, CString::new("u_light_count").unwrap().as_ptr());
+            glUniform1i(light_count_loc, light_count as i32);
+            for (i, light) in renderer.lights.iter().enumerate() {
+                if i >= MAX_LIGHTS { break; }
+                let light_pos = glGetUniformLocation(self.shader.program, CString::new(format!("u_lights[{}].position", i)).unwrap().as_ptr());
+                let light_color = glGetUniformLocation(self.shader.program, CString::new(format!("u_lights[{}].colour", i)).unwrap().as_ptr());
+                let light_intensity = glGetUniformLocation(self.shader.program, CString::new(format!("u_lights[{}].intensity", i)).unwrap().as_ptr());
+
+                glUniform3f(light_pos, light.position.x, light.position.y, light.position.z);
+                glUniform3f(light_color, light.color.x, light.color.y, light.color.z);
+                glUniform1f(light_intensity, light.intensity);
+            }
 
 
             // transformation time!

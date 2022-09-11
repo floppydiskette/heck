@@ -224,3 +224,76 @@ impl Default for Brush {
         }
     }
 }
+
+// light
+impl Component for Light {
+    fn get_id(&self) -> u32 {
+        self.component_type.id
+    }
+
+    fn get_name(&self) -> String {
+        self.component_type.name.clone()
+    }
+
+    fn get_type(&self) -> ComponentType {
+        self.component_type.clone()
+    }
+
+    fn get_parameters(&self) -> Vec<Parameter> {
+        vec![
+            Parameter::new("position", Box::new(self.position)),
+            Parameter::new("color", Box::new(self.color)),
+            Parameter::new("intensity", Box::new(self.intensity)),
+        ]
+    }
+
+    fn get_parameter(&self, parameter_name: &str) -> Option<Parameter> {
+        match parameter_name {
+            "position" => Some(Parameter::new("position", Box::new(self.position))),
+            "color" => Some(Parameter::new("color", Box::new(self.color))),
+            "intensity" => Some(Parameter::new("intensity", Box::new(self.intensity))),
+            _ => None,
+        }
+    }
+
+    fn set_parameter(&mut self, parameter_name: &str, value: Box<dyn Any>) {
+        match parameter_name {
+            "position" => {
+                if let Ok(value) = value.downcast::<Vec3>() {
+                    self.position = *value;
+                }
+            }
+            "color" => {
+                if let Ok(value) = value.downcast::<Vec3>() {
+                    self.color = *value;
+                }
+            }
+            "intensity" => {
+                if let Ok(value) = value.downcast::<f32>() {
+                    self.intensity = *value;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn clone(&self) -> Box<dyn Component> {
+        Box::new(Light {
+            position: self.position,
+            color: self.color,
+            intensity: self.intensity,
+            component_type: self.component_type.clone(),
+        })
+    }
+}
+
+impl Default for Light {
+    fn default() -> Self {
+        Self {
+            position: Vec3::new(0.0, 0.0, 0.0),
+            color: Vec3::new(1.0, 1.0, 1.0),
+            intensity: 1.0,
+            component_type: COMPONENT_TYPE_LIGHT.clone(),
+        }
+    }
+}

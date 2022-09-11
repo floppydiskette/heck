@@ -19,38 +19,52 @@ struct Material {
 
 uniform Material u_material;
 
+// point light
+struct Light {
+    vec3 position;
+    vec3 colour;
+    float intensity;
+};
+
+#define MAX_LIGHTS 100
+
+uniform Light u_lights[MAX_LIGHTS];
+uniform int u_light_count;
+
 vec3 calculate_ambient(float strength, vec3 colour) {
     return strength * colour;
+}
+
+vec3 calculate_light(Light light, vec3 normal, vec3 frag_pos, vec3 view_dir) {
+    vec3 light_dir = normalize(light.position - frag_pos);
+    float diff = max(dot(normal, light_dir), 0.0);
+    vec3 reflect_dir = reflect(-light_dir, normal);
+    float spec = pow(max(dot(view_dir, reflect_dir), 0.0), 32);
+    return light.intensity * (diff * light.colour + spec * light.colour);
 }
 
 void main() {
     float specular_strength = 0.5;
 
-    vec3 light_pos = vec3(0.0, 0.0, 0.0); // hard coded light position for now
-    vec3 light_colour = vec3(1.0, 1.0, 1.0); // hard coded light colour for now
-
     vec3 norm = normalize(normal);
-    vec3 light_dir = normalize(light_pos - frag_pos);
-
-    // diffuse shading
-
-    float diff = max(dot(norm, light_dir), 0.0);
-    vec3 diffuse = light_colour * (diff * texture(u_material.diffuse, uv).rgb);
 
     vec3 view_dir = normalize(u_camera_pos - frag_pos);
-    vec3 reflect_dir = reflect(-light_dir, norm);
 
-    // specular shading
+    // calculate ambient
+    vec3 ambient = calculate_ambient(0.1, vec3(1.0, 1.0, 1.0));
 
-    float spec = pow(max(dot(view_dir, reflect_dir), 0.0), 32);
-    vec3 specular = light_colour * (spec * texture(u_material.metallic, uv).rgb);
+    // calculate lights (point lights)
+    vec3 result = vec3(0.0, 0.0, 0.0);
+    for (int i = 0; i < u_light_count; i++) {
+        result += calculate_light(u_lights[i], norm, frag_pos, view_dir);
+    }
 
-    vec3 ambient = calculate_ambient(0.1, light_colour);
+    vec3 colour = texture(u_material.diffuse, uv).rgb;
+    vec3 metallic = texture(u_material.metallic, uv).rgb;
+    vec3 roughness = texture(u_material.roughness, uv).rgb;
+    vec3 normal = texture(u_material.normal, uv).rgb;
 
-    // roughness
-    float roughness = texture(u_material.roughness, uv).r;
-    float metallic = texture(u_material.metallic, uv).r;
+    vec3 final_colour = (ambient + result) * colour;
 
-    vec3 colour = (1.0 - metallic) * diffuse + specular * specular_strength + ambient;
-    o_colour = vec4(colour, u_opacity);
+    o_colour = vec4(final_colour, u_opacity);
 }

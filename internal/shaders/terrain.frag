@@ -16,8 +16,28 @@ uniform float scale = 1;
 
 uniform vec3 u_camera_pos;
 
+// point light
+struct Light {
+    vec3 position;
+    vec3 colour;
+    float intensity;
+};
+
+#define MAX_LIGHTS 100
+
+uniform Light u_lights[MAX_LIGHTS];
+uniform int u_light_count;
+
 vec3 calculate_ambient(float strength, vec3 colour) {
     return strength * colour;
+}
+
+vec3 calculate_light(Light light, vec3 normal, vec3 frag_pos, vec3 view_dir) {
+    vec3 light_dir = normalize(light.position - frag_pos);
+    float diff = max(dot(normal, light_dir), 0.0);
+    vec3 reflect_dir = reflect(-light_dir, normal);
+    float spec = pow(max(dot(view_dir, reflect_dir), 0.0), 32);
+    return light.intensity * (diff * light.colour + spec * light.colour);
 }
 
 // uses the mixmap to blend between the 4 textures
@@ -41,24 +61,16 @@ void main() {
     b = mix(b, g, mixmap.b);
     a = mix(a, b, mixmap.a);
 
-    vec3 light_pos = vec3(0.0, 3.0, 0.0); // hard coded light position for now
-    vec3 light_colour = vec3(1.0, 1.0, 1.0); // hard coded light colour for now
-
-    vec3 norm = normalize(normal);
-    vec3 light_dir = normalize(light_pos - frag_pos);
-
-    float diff = max(dot(norm, light_dir), 0.0);
-    vec3 diffuse = diff * light_colour;
 
     vec3 view_dir = normalize(u_camera_pos - frag_pos);
-    vec3 reflect_dir = reflect(-light_dir, norm);
 
-    float spec = pow(max(dot(view_dir, reflect_dir), 0.0), 32);
-    vec3 specular = specular_strength * spec * light_colour;
+    vec3 ambient = calculate_ambient(0.1, vec3(1.0, 1.0, 1.0));
 
-    vec3 ambient = calculate_ambient(0.1, light_colour);
+    vec3 result = vec3(0);
+    for (int i = 0; i < u_light_count; i++) {
+        result += calculate_light(u_lights[i], normal, frag_pos, view_dir);
+    }
 
-    vec3 result = (ambient + diffuse + specular) * a.rgb;
-
-    o_colour = vec4(result, 1.0);
+    // apply the lighting
+    o_colour = vec4(a * (ambient + result), 1);
 }

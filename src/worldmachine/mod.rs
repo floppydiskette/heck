@@ -3,11 +3,11 @@ use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 use gfx_maths::{Quaternion, Vec2, Vec3};
 use gtk::subclass::prelude::ObjectSubclassIsExt;
-use crate::Cast;
+use crate::{Cast, renderer};
 use crate::h2eck_window::editor::Editor;
 use crate::renderer::H2eckRenderer;
 use crate::renderer::raycasting::Ray;
-use crate::worldmachine::components::{COMPONENT_TYPE_MESH_RENDERER, COMPONENT_TYPE_TRANSFORM, MeshRenderer};
+use crate::worldmachine::components::{COMPONENT_TYPE_LIGHT, COMPONENT_TYPE_MESH_RENDERER, COMPONENT_TYPE_TRANSFORM, Light, MeshRenderer};
 use crate::worldmachine::ecs::*;
 use crate::worldmachine::entities::new_ht2_entity;
 
@@ -43,7 +43,8 @@ pub struct WorldMachine {
     pub world: World,
     pub game_data_path: String,
     pub counter: f32,
-    pub editor: Arc<Mutex<Option<Editor>>>
+    pub editor: Arc<Mutex<Option<Editor>>>,
+    lights_changed: bool,
 }
 
 impl Default for WorldMachine {
@@ -56,7 +57,8 @@ impl Default for WorldMachine {
             world: world,
             game_data_path: String::from(""),
             counter: 0.0,
-            editor: Arc::new(Mutex::new(Option::None))
+            editor: Arc::new(Mutex::new(Option::None)),
+            lights_changed: true
         }
     }
 }
@@ -65,6 +67,8 @@ impl WorldMachine {
     pub fn initialise(&mut self, editor: Arc<Mutex<Option<Editor>>>) {
         let mut ht2 = Box::new(new_ht2_entity());
         ht2.set_component_parameter(COMPONENT_TYPE_TRANSFORM.clone(), "position", Box::new(Vec3::new(0.0, 0.25, 4.0)));
+        let light_component = Box::new(Light::new(Vec3::new(0.0, 1.0, 0.0), Vec3::new(1.0, 1.0, 1.0), 1.0));
+        ht2.add_component(light_component);
         self.world.entities.push(ht2);
         self.editor = editor;
         let editor = self.editor.lock().unwrap();
@@ -90,6 +94,9 @@ impl WorldMachine {
     }
 
     pub fn attempt_to_set_component_property(&mut self, entity_id: u32, component_name: String, property_name: String, value: String) {
+        // as component properties are now different, tell the renderer that the lights have changed
+        self.lights_changed = true;
+
         debug!("attempt_to_set_component_property: entity_id: {}, component_name: {}, property_name: {}, value: {}", entity_id, component_name, property_name, value);
         let mut entity_index = self.get_entity_index(entity_id).unwrap();
         let mut entity = self.world.entities[entity_index].clone();
@@ -182,6 +189,47 @@ impl WorldMachine {
     }
 
     pub fn select(&mut self, mouse_x: f32, mouse_y: f32, renderer: &mut H2eckRenderer) {
+    }
+
+    pub fn send_lights_to_renderer(&self) -> Option<Vec<renderer::light::Light>> {
+        if !self.lights_changed {
+            return Option::None;
+        }
+        let mut lights = Vec::new();
+        for entity in &self.world.entities {
+            let components = entity.get_components();
+            let mut light_component = Option::None;
+            let mut transform_component = Option::None; // if we have a transform component, this will be added to the light's position
+            for component in components {
+                if component.get_type() == COMPONENT_TYPE_LIGHT.clone() {
+                    light_component = Option::Some(component);
+                }
+                if component.get_type() == COMPONENT_TYPE_TRANSFORM.clone() {
+                    transform_component = Option::Some(component);
+                }
+            }
+            if let Some(light) = light_component {
+                let mut light = light.clone();
+                let position = light.get_parameter("position").unwrap();
+                let mut position = *position.value.downcast_ref::<Vec3>().unwrap();
+                let color = light.get_parameter("color").unwrap();
+                let color = *color.value.downcast_ref::<Vec3>().unwrap();
+                let intensity = light.get_parameter("intensity").unwrap();
+                let intensity = *intensity.value.downcast_ref::<f32>().unwrap();
+                if let Some(transform) = transform_component {
+                    let transform = transform.clone();
+                    let trans_position = transform.get_parameter("position").unwrap();
+                    let trans_position = trans_position.value.downcast_ref::<Vec3>().unwrap();
+                    position = position + trans_position;
+                }
+                lights.push(renderer::light::Light{
+                    position,
+                    color,
+                    intensity,
+                });
+            }
+        }
+        Some(lights)
     }
 
     pub fn render(&mut self, renderer: &mut H2eckRenderer) {

@@ -7,6 +7,7 @@ pub mod keyboard;
 pub mod raycasting;
 pub mod texture;
 pub mod terrain;
+pub mod light;
 
 use std::collections::HashMap;
 use std::ffi::c_void;
@@ -15,6 +16,7 @@ use gtk::gdk::{Key, ModifierType};
 use libsex::bindings::*;
 use crate::renderer::camera::{Camera, CameraMovement};
 use crate::renderer::keyboard::KeyboardManager;
+use crate::renderer::light::Light;
 use crate::renderer::mesh::Mesh;
 use crate::renderer::raycasting::Ray;
 use crate::renderer::shader::Shader;
@@ -22,6 +24,8 @@ use crate::renderer::terrain::Terrain;
 use crate::renderer::texture::Texture;
 use crate::renderer::types::*;
 use crate::worldmachine::{World, WorldMachine};
+
+pub static MAX_LIGHTS: usize = 100;
 
 pub struct H2eckRenderer {
     pub state: H2eckState,
@@ -35,6 +39,7 @@ pub struct H2eckRenderer {
     pub meshes: Option<HashMap<String, Mesh>>,
     pub textures: Option<HashMap<String, Texture>>,
     pub terrains: Option<HashMap<String, Terrain>>,
+    pub lights: Vec<Light>,
     pub gbuffer: usize,
     pub g_position: usize,
     pub g_normal: usize,
@@ -62,6 +67,7 @@ impl Default for H2eckRenderer {
             meshes: Some(HashMap::new()),
             textures: Some(HashMap::new()),
             terrains: Some(HashMap::new()),
+            lights: Vec::new(),
             gbuffer: 0,
             g_position: 0,
             g_normal: 0,
@@ -204,6 +210,11 @@ impl H2eckRenderer {
         }
 
         self.process_inputs();
+
+        let lights = worldmachine.send_lights_to_renderer();
+        if let Some(lights) = lights {
+            self.lights = lights;
+        }
 
         unsafe {
             // set the clear color to black
