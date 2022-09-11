@@ -40,13 +40,20 @@ pub struct H2eckRenderer {
     pub textures: Option<HashMap<String, Texture>>,
     pub terrains: Option<HashMap<String, Terrain>>,
     pub lights: Vec<Light>,
-    pub gbuffer: usize,
-    pub g_position: usize,
-    pub g_normal: usize,
-    pub g_albedo_spec: usize,
+    pub framebuffers: Framebuffers,
     pub selected_entity: isize,
     pub initialised: bool,
     pub shading: bool,
+}
+
+pub struct Framebuffers {
+    pub original: usize,
+
+    pub postbuffer: usize,
+    pub postbuffer_texture: usize,
+    pub postbuffer_rbuffer: usize,
+
+    pub screenquad_vao: usize,
 }
 
 pub enum H2eckState {
@@ -68,10 +75,13 @@ impl Default for H2eckRenderer {
             textures: Some(HashMap::new()),
             terrains: Some(HashMap::new()),
             lights: Vec::new(),
-            gbuffer: 0,
-            g_position: 0,
-            g_normal: 0,
-            g_albedo_spec: 0,
+            framebuffers: Framebuffers {
+                original: 0,
+                postbuffer: 0,
+                postbuffer_texture: 0,
+                postbuffer_rbuffer: 0,
+                screenquad_vao: 0,
+            },
             selected_entity: -1,
             initialised: false,
             shading: true,
@@ -88,19 +98,78 @@ impl H2eckRenderer {
         // todo! get this from settings
         self.data_dir = String::from("../huskyTech2/base");
 
-        //self.create_selection_framebuffer(self.camera.as_ref().unwrap().get_window_size());
-
         unsafe {
+            // get the number of the current framebuffer
+            let mut original: i32 = 0;
+            glGetIntegerv(GL_FRAMEBUFFER_BINDING, &mut original);
+            self.framebuffers.original = original as usize;
+
             // Configure culling
             glEnable(GL_CULL_FACE);
             glCullFace(GL_FRONT);
             glEnable(GL_DEPTH_TEST);
             glDepthFunc(GL_LESS);
 
+            // configure stencil test
+            glEnable(GL_STENCIL_TEST);
+
+            // create the postprocessing framebuffer
+            let mut postbuffer = 0;
+            glGenFramebuffers(1, &mut postbuffer);
+            glBindFramebuffer(GL_FRAMEBUFFER, postbuffer);
+            let mut posttexture = 0;
+            glGenTextures(1, &mut posttexture);
+            glBindTexture(GL_TEXTURE_2D, posttexture);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB as i32, width as i32, height as i32, 0, GL_RGB, GL_UNSIGNED_BYTE, std::ptr::null());
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR as i32);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR as i32);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, posttexture, 0);
+            // create a renderbuffer object for depth and stencil attachment (we won't be sampling these)
+            let mut renderbuffer = 0;
+            glGenRenderbuffers(1, &mut renderbuffer);
+            glBindRenderbuffer(GL_RENDERBUFFER, renderbuffer);
+            glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width as i32, height as i32);
+            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, renderbuffer);
+
+            // check if framebuffer is complete
+            if glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE {
+                panic!("framebuffer is not complete!");
+            }
+            self.framebuffers.postbuffer = postbuffer as usize;
+            self.framebuffers.postbuffer_texture = posttexture as usize;
+            self.framebuffers.postbuffer_rbuffer = renderbuffer as usize;
+
+            // create a simple quad that fills the screen
+            let mut screenquad_vao = 0;
+            glGenVertexArrays(1, &mut screenquad_vao);
+            glBindVertexArray(screenquad_vao);
+            let mut screenquad_vbo = 0;
+            glGenBuffers(1, &mut screenquad_vbo);
+            glBindBuffer(GL_ARRAY_BUFFER, screenquad_vbo);
+            // just stealing this from the learnopengl.com tutorial (it's a FUCKING QUAD, HOW ORIGINAL CAN IT BE?)
+            let quad_vertices: [f32; 30] = [
+                // positions        // texture Coords
+                -1.0,  1.0, 0.0,    0.0, 1.0,
+                -1.0, -1.0, 0.0,    0.0, 0.0,
+                1.0, -1.0, 0.0,    1.0, 0.0,
+
+                -1.0,  1.0, 0.0,    0.0, 1.0,
+                1.0, -1.0, 0.0,    1.0, 0.0,
+                1.0,  1.0, 0.0,    1.0, 1.0,
+            ];
+            glBufferData(GL_ARRAY_BUFFER, (quad_vertices.len() * std::mem::size_of::<f32>()) as GLsizeiptr, quad_vertices.as_ptr() as *const c_void, GL_STATIC_DRAW);
+            // as this is such a simple quad, we're not gonna bother with indices
+            glEnableVertexAttribArray(0);
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE as GLboolean, 5 * std::mem::size_of::<f32>() as i32, std::ptr::null());
+            glEnableVertexAttribArray(1);
+            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE as GLboolean, 5 * std::mem::size_of::<f32>() as i32, (3 * std::mem::size_of::<f32>()) as *const c_void);
+            self.framebuffers.screenquad_vao = screenquad_vao as usize;
+
+
             glViewport(0, 0, width as i32, height as i32);
             // make top left corner as origin
 
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
             // print opengl errors
             let mut error = glGetError();
@@ -110,6 +179,7 @@ impl H2eckRenderer {
             }
         }
 
+        Shader::load_shader(self, "postbuffer").expect("failed to load shader (postbuffer)");
         Shader::load_shader(self, "basic").expect("failed to load shader");
         Shader::load_shader(self, "terrain").expect("failed to load shader (terrain)");
         Texture::load_texture("default", "default/default", self).expect("failed to load default texture");
@@ -217,9 +287,17 @@ impl H2eckRenderer {
         }
 
         unsafe {
+            // set framebuffer to the post processing framebuffer
+            glBindFramebuffer(GL_FRAMEBUFFER, self.framebuffers.postbuffer as GLuint);
+
+            glEnable(GL_CULL_FACE);
+            glCullFace(GL_FRONT);
+            glEnable(GL_DEPTH_TEST);
+            glDepthFunc(GL_LESS);
+
             // set the clear color to black
             glClearColor(0.1, 0.0, 0.1, 1.0);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
             if let Some(terrains) = self.terrains.clone() {
                 // render the terrains
@@ -229,6 +307,39 @@ impl H2eckRenderer {
             }
 
             worldmachine.render(self);
+
+            // set framebuffer to the default framebuffer
+            glBindFramebuffer(GL_FRAMEBUFFER, self.framebuffers.original as GLuint);
+            glClearColor(1.0, 0.0, 0.1, 1.0);
+            glClear(GL_COLOR_BUFFER_BIT);
+
+            if self.current_shader != Some("postbuffer".to_string()) {
+                unsafe {
+                    glUseProgram(self.shaders.as_mut().unwrap().get("postbuffer").unwrap().program);
+                    self.current_shader = Some("postbuffer".to_string());
+                }
+            }
+            // render the post processing framebuffer
+            glBindVertexArray(self.framebuffers.screenquad_vao as GLuint);
+            glDisable(GL_DEPTH_TEST);
+
+            // make sure that gl doesn't cull the back face of the quad
+            glDisable(GL_CULL_FACE);
+
+            // set texture uniform
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, self.framebuffers.postbuffer_texture as GLuint);
+            glUniform1i(glGetUniformLocation(self.shaders.as_mut().unwrap().get("postbuffer").unwrap().program, "u_texture\0".as_ptr() as *const GLchar), 0);
+            // draw the screen quad
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+
+            // print opengl errors
+            let mut error = glGetError();
+            while error != GL_NO_ERROR {
+                error!("OpenGL error while rendering to postbuffer: {}", error);
+                error = glGetError();
+            }
+
 
             glFlush();
         }

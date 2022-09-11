@@ -112,7 +112,6 @@ impl Terrain {
                         renderer.camera.as_mut().unwrap().get_position().z);
 
             glDrawElements(GL_TRIANGLES, self.mesh.num_indices as GLsizei, GL_UNSIGNED_INT, null());
-            glDisableVertexAttribArray(0);
 
             // print opengl errors
             let mut error = glGetError();
