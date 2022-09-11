@@ -66,7 +66,7 @@ impl Default for WorldMachine {
 impl WorldMachine {
     pub fn initialise(&mut self, editor: Arc<Mutex<Option<Editor>>>) {
         let mut ht2 = Box::new(new_ht2_entity());
-        ht2.set_component_parameter(COMPONENT_TYPE_TRANSFORM.clone(), "position", Box::new(Vec3::new(0.0, 0.25, 4.0)));
+        ht2.set_component_parameter(COMPONENT_TYPE_TRANSFORM.clone(), "position", Box::new(Vec3::new(0.0, 5.0, 4.0)));
         let light_component = Box::new(Light::new(Vec3::new(0.0, 1.0, 0.0), Vec3::new(1.0, 1.0, 1.0), 1.0));
         ht2.add_component(light_component);
         self.world.entities.push(ht2);
@@ -75,6 +75,7 @@ impl WorldMachine {
         editor.as_ref().unwrap().imp().regen_model_from_world(&mut self.world);
     }
 
+    #[allow(clippy::borrowed_box)]
     pub fn get_entity(&self, entity_id: u32) -> Option<Arc<Mutex<&Box<dyn Entity>>>> {
         for entity in self.world.entities.iter() {
             if entity.get_id() == entity_id {

@@ -26,6 +26,7 @@ use crate::renderer::types::*;
 use crate::worldmachine::{World, WorldMachine};
 
 pub static MAX_LIGHTS: usize = 100;
+pub static SHADOW_SIZE: usize = 1024;
 
 pub struct H2eckRenderer {
     pub state: H2eckState,
@@ -52,6 +53,9 @@ pub struct Framebuffers {
     pub postbuffer: usize,
     pub postbuffer_texture: usize,
     pub postbuffer_rbuffer: usize,
+
+    pub depthbuffer: usize,
+    pub depthbuffer_texture: usize,
 
     pub screenquad_vao: usize,
 }
@@ -80,6 +84,8 @@ impl Default for H2eckRenderer {
                 postbuffer: 0,
                 postbuffer_texture: 0,
                 postbuffer_rbuffer: 0,
+                depthbuffer: 0,
+                depthbuffer_texture: 0,
                 screenquad_vao: 0,
             },
             selected_entity: -1,
@@ -164,6 +170,28 @@ impl H2eckRenderer {
             glEnableVertexAttribArray(1);
             glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE as GLboolean, 5 * std::mem::size_of::<f32>() as i32, (3 * std::mem::size_of::<f32>()) as *const c_void);
             self.framebuffers.screenquad_vao = screenquad_vao as usize;
+
+            // create the depth framebuffer
+            let mut depthbuffer = 0;
+            glGenFramebuffers(1, &mut depthbuffer);
+            glBindFramebuffer(GL_FRAMEBUFFER, depthbuffer);
+            let mut depthtexture = 0;
+            glGenTextures(1, &mut depthtexture);
+            glBindTexture(GL_TEXTURE_2D, depthtexture);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT as i32, SHADOW_SIZE as i32, SHADOW_SIZE as i32, 0, GL_DEPTH_COMPONENT, GL_FLOAT, std::ptr::null());
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST as i32);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST as i32);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT as i32);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT as i32);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthtexture, 0);
+            glDrawBuffer(GL_NONE);
+            glReadBuffer(GL_NONE);
+            if glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE {
+                panic!("framebuffer is not complete (depth buffer)!");
+            }
+
+            self.framebuffers.depthbuffer = depthbuffer as usize;
+            self.framebuffers.depthbuffer_texture = depthtexture as usize;
 
 
             glViewport(0, 0, width as i32, height as i32);
@@ -270,6 +298,31 @@ impl H2eckRenderer {
         camera.set_rotation(rotation);
     }
 
+    fn normal_scene_render(&mut self, worldmachine: &mut WorldMachine) {
+        unsafe {
+            glEnable(GL_CULL_FACE);
+            glCullFace(GL_FRONT);
+            glEnable(GL_DEPTH_TEST);
+            glDepthFunc(GL_LESS);
+
+            // disable gamma correction
+            glDisable(GL_FRAMEBUFFER_SRGB);
+
+            // set the clear color to black
+            glClearColor(0.1, 0.0, 0.1, 1.0);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+            if let Some(terrains) = self.terrains.clone() {
+                // render the terrains
+                for terrain in terrains {
+                    terrain.1.render(self);
+                }
+            }
+
+            worldmachine.render(self);
+        }
+    }
+
     // should be called upon the render action of our GtkGLArea
     pub fn render(&mut self, worldmachine: &mut WorldMachine) {
         // todo! this is a hack
@@ -287,26 +340,12 @@ impl H2eckRenderer {
         }
 
         unsafe {
+            glViewport(0, 0, self.camera.as_mut().unwrap().get_window_size().x as GLsizei, self.camera.as_mut().unwrap().get_window_size().y as GLsizei);
+
             // set framebuffer to the post processing framebuffer
             glBindFramebuffer(GL_FRAMEBUFFER, self.framebuffers.postbuffer as GLuint);
 
-            glEnable(GL_CULL_FACE);
-            glCullFace(GL_FRONT);
-            glEnable(GL_DEPTH_TEST);
-            glDepthFunc(GL_LESS);
-
-            // set the clear color to black
-            glClearColor(0.1, 0.0, 0.1, 1.0);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-            if let Some(terrains) = self.terrains.clone() {
-                // render the terrains
-                for terrain in terrains {
-                    terrain.1.render(self);
-                }
-            }
-
-            worldmachine.render(self);
+            self.normal_scene_render(worldmachine);
 
             // set framebuffer to the default framebuffer
             glBindFramebuffer(GL_FRAMEBUFFER, self.framebuffers.original as GLuint);
@@ -322,6 +361,9 @@ impl H2eckRenderer {
             // render the post processing framebuffer
             glBindVertexArray(self.framebuffers.screenquad_vao as GLuint);
             glDisable(GL_DEPTH_TEST);
+
+            // enable gamma correction
+            glEnable(GL_FRAMEBUFFER_SRGB);
 
             // make sure that gl doesn't cull the back face of the quad
             glDisable(GL_CULL_FACE);

@@ -32,11 +32,16 @@ vec3 calculate_ambient(float strength, vec3 colour) {
     return strength * colour;
 }
 
-vec3 calculate_light(Light light, vec3 normal, vec3 frag_pos, vec3 view_dir) {
+vec3 calculate_light(Light light, float shiny, vec3 normal, vec3 frag_pos, vec3 view_dir) {
     vec3 light_dir = normalize(light.position - frag_pos);
+    vec3 halfway_dir = normalize(light_dir + view_dir);
+
     float diff = max(dot(normal, light_dir), 0.0);
+
     vec3 reflect_dir = reflect(-light_dir, normal);
-    float spec = pow(max(dot(view_dir, reflect_dir), 0.0), 32);
+
+    float spec = pow(max(dot(normal, halfway_dir), 0.0), shiny);
+
     return light.intensity * (diff * light.colour + spec * light.colour);
 }
 
@@ -68,7 +73,7 @@ void main() {
 
     vec3 result = vec3(0);
     for (int i = 0; i < u_light_count; i++) {
-        result += calculate_light(u_lights[i], normal, frag_pos, view_dir);
+        result += calculate_light(u_lights[i], 256.0, normal, frag_pos, view_dir);
     }
 
     // apply the lighting
