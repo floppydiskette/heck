@@ -10,6 +10,7 @@ use gtk::{glib, Button, CompositeTemplate, PopoverMenuBar, Inhibit, GLArea, gdk,
 use gtk::gdk::ffi::GdkGLContext;
 use gtk::gio::Menu;
 use gtk::glib::{Type, Value};
+use crate::gio;
 use crate::gio::glib::clone;
 use crate::gio::SimpleAction;
 use crate::renderer::H2eckRenderer;
@@ -40,10 +41,22 @@ pub struct Editor {
     #[template_child]
     pub parameter_value_renderer: TemplateChild<gtk::CellRendererText>,
 
+    // toolbar buttons
+    #[template_child]
+    pub new: TemplateChild<gtk::Button>,
+    #[template_child]
+    pub open: TemplateChild<gtk::Button>,
+    #[template_child]
+    pub save: TemplateChild<gtk::Button>,
+    #[template_child]
+    pub save_as: TemplateChild<gtk::Button>,
+
     pub sb_treestore: Arc<Mutex<Option<gtk::TreeStore>>>,
     pub it_treestore: Arc<Mutex<Option<gtk::TreeStore>>>,
     pub worldmachine: Arc<Mutex<Option<Arc<Mutex<WorldMachine>>>>>,
+    pub window: Arc<Mutex<Option<gtk::ApplicationWindow>>>,
     pub current_entity_id: Arc<Mutex<Option<u32>>>,
+    pub current_world_path: Arc<Mutex<Option<String>>>,
 }
 
 #[glib::object_subclass]
@@ -168,6 +181,40 @@ pub fn get_component_from_sb_treepath(sb_treestore: Arc<Mutex<Option<gtk::TreeSt
     component
 }
 
+pub fn saveas(predetermined_path: Option<String>, window: Arc<Mutex<Option<gtk::ApplicationWindow>>>, worldmachine: Arc<Mutex<WorldMachine>>) {
+    let window = window.lock().unwrap().as_ref().unwrap().clone();
+    let dialog = gtk::FileChooserDialog::new(Some("Save World"), Some(&window), gtk::FileChooserAction::Save, &[("Cancel", gtk::ResponseType::Cancel), ("Save", gtk::ResponseType::Accept)]);
+    if let Some(predetermined_path) = predetermined_path {
+        dialog.set_file(&gio::File::for_path(&predetermined_path));
+    }
+    dialog.connect_response(move |dialog, response| {
+        if response == gtk::ResponseType::Accept {
+            let worldmachine = worldmachine.lock().unwrap();
+            let path = dialog.file().unwrap().path().unwrap();
+            worldmachine.save_state_to_file(&path.to_str().unwrap());
+        }
+        dialog.close();
+    });
+    dialog.show();
+}
+
+pub fn open(predetermined_path: Option<String>, window: Arc<Mutex<Option<gtk::ApplicationWindow>>>, worldmachine: Arc<Mutex<WorldMachine>>) {
+    let window = window.lock().unwrap().as_ref().unwrap().clone();
+    let dialog = gtk::FileChooserDialog::new(Some("Open World"), Some(&window), gtk::FileChooserAction::Open, &[("Cancel", gtk::ResponseType::Cancel), ("Open", gtk::ResponseType::Accept)]);
+    if let Some(predetermined_path) = predetermined_path {
+        dialog.set_file(&gio::File::for_path(&predetermined_path));
+    }
+    dialog.connect_response(move |dialog, response| {
+        if response == gtk::ResponseType::Accept {
+            let mut worldmachine = worldmachine.lock().unwrap();
+            let path = dialog.file().unwrap().path().unwrap();
+            worldmachine.load_state_from_file(&path.to_str().unwrap());
+        }
+        dialog.close();
+    });
+    dialog.show();
+}
+
 impl Editor {
     pub fn setup(&self, obj: &<Editor as ObjectSubclass>::Type) {
         // create a treemodel for the scene browser
@@ -273,6 +320,52 @@ impl Editor {
                     let mut worldmachine = worldmachine.lock().unwrap();
                     worldmachine.attempt_to_set_component_property(entity_id, component_name, property_name.unwrap(), new_text.to_string());
                 }
+            }
+        });
+
+        // setup the callback for clicking the save button
+        let worldmachine = self.worldmachine.clone();
+        let window = self.window.clone();
+        let current_world_path = self.current_world_path.clone();
+        self.save.connect_clicked(move |_| {
+            let worldmachine = worldmachine.lock().unwrap().as_ref().unwrap().clone();
+            let window = window.clone();
+            let current_world_path = current_world_path.lock().unwrap();
+            if let Some(current_world_path) = current_world_path.as_ref() {
+                let worldmachine = worldmachine.lock().unwrap();
+                worldmachine.save_state_to_file(current_world_path);
+            } else {
+                saveas(None, window, worldmachine);
+            }
+        });
+        // setup the callback for clicking the save as button
+        let worldmachine = self.worldmachine.clone();
+        let window = self.window.clone();
+        let current_world_path = self.current_world_path.clone();
+        self.save_as.connect_clicked(move |_| {
+            let worldmachine = worldmachine.lock().unwrap().as_ref().unwrap().clone();
+            let window = window.clone();
+            let current_world_path = current_world_path.lock().unwrap();
+            if let Some(current_world_path) = current_world_path.as_ref() {
+                saveas(Some(current_world_path.clone()), window, worldmachine);
+            } else {
+                saveas(None, window, worldmachine);
+            }
+        });
+
+        // setup the callback for clicking the open button
+        let worldmachine = self.worldmachine.clone();
+        let window = self.window.clone();
+        let current_world_path = self.current_world_path.clone();
+        self.open.connect_clicked(move |_| {
+            let worldmachine = worldmachine.lock().unwrap().as_ref().unwrap().clone();
+            let window = window.clone();
+            let current_world_path = current_world_path.clone();
+            let current_world_path = current_world_path.lock().unwrap();
+            if let Some(current_world_path) = current_world_path.as_ref() {
+                open(Some(current_world_path.clone()), window, worldmachine);
+            } else {
+                open(None, window, worldmachine);
             }
         });
     }

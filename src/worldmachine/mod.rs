@@ -119,7 +119,7 @@ impl WorldMachine {
         }
 
         // as a test, save and load the world
-        self.save_state_to_file("test_world.map");
+        //self.save_state_to_file("test_world.map");
         self.load_state_from_file("test_world.map");
     }
 

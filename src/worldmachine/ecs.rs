@@ -6,16 +6,23 @@ use gfx_maths::{Quaternion, Vec2, Vec3};
 
 pub struct Parameter {
     pub name: String,
-    pub value: Box<dyn Any>,
-    type_id: TypeId,
+    pub value: ParameterValue,
+}
+
+pub enum ParameterValue {
+    Vec3(Vec3),
+    Quaternion(Quaternion),
+    Vec2(Vec2),
+    Float(f32),
+    Int(i32),
+    Bool(bool),
 }
 
 impl Parameter {
-    pub(crate) fn new(name: &str, value: Box<dyn Any>) -> Self {
+    pub(crate) fn new(name: &str, value: ParameterValue) -> Parameter {
         Self {
             name: name.to_string(),
             value,
-            type_id: TypeId::of::<Box<dyn Any>>(),
         }
     }
 
