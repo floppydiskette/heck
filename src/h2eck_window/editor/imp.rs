@@ -15,7 +15,7 @@ use crate::gio::glib::clone;
 use crate::gio::SimpleAction;
 use crate::renderer::H2eckRenderer;
 use crate::worldmachine::{World, WorldMachine};
-use crate::worldmachine::ecs::Component;
+use crate::worldmachine::ecs::{Component, ParameterValue};
 
 
 #[derive(CompositeTemplate, Default)]
@@ -55,7 +55,7 @@ pub struct Editor {
     pub it_treestore: Arc<Mutex<Option<gtk::TreeStore>>>,
     pub worldmachine: Arc<Mutex<Option<Arc<Mutex<WorldMachine>>>>>,
     pub window: Arc<Mutex<Option<gtk::ApplicationWindow>>>,
-    pub current_entity_id: Arc<Mutex<Option<u32>>>,
+    pub current_entity_id: Arc<Mutex<Option<u64>>>,
     pub current_world_path: Arc<Mutex<Option<String>>>,
 }
 
@@ -82,52 +82,37 @@ impl ObjectImpl for Editor {
     }
 }
 
-pub fn regen_inspector_from_component(it_treestore: Arc<Mutex<Option<gtk::TreeStore>>>, component: &mut Box<dyn Component>) {
+pub fn regen_inspector_from_component(it_treestore: Arc<Mutex<Option<gtk::TreeStore>>>, component: &mut Component) {
     let mut model = it_treestore.lock().unwrap();
     let model = model.as_ref().unwrap();
     model.clear();
     let root = model.append(None);
-    model.set(&root, &[(0, &Value::from(component.get_name().as_str()))]);
-    for property in component.get_parameters() {
+    model.set(&root, &[(0, &Value::from(component.get_name()))]);
+    for (_, property) in component.get_parameters() {
         let property_node = model.append(Some(&root));
-        model.set(&property_node, &[(0, &Value::from(property.name.as_str()))]);
-        let parameter_value = property.value;
-        let parameter_type = parameter_value.deref().type_id();
-        // switch on the type of the parameter
-        let string_type = std::any::TypeId::of::<String>();
-        let float_type = std::any::TypeId::of::<f32>();
-        let int_type = std::any::TypeId::of::<i32>();
-        let bool_type = std::any::TypeId::of::<bool>();
-        let vec3_type = std::any::TypeId::of::<Vec3>();
-        let quaternion_type = std::any::TypeId::of::<Quaternion>();
-
-        match parameter_type {
-            x if x == string_type => {
-                let string_value = parameter_value.downcast_ref::<String>().unwrap();
-                model.set(&property_node, &[(1, &Value::from(string_value.as_str()))]);
+        model.set(&property_node, &[(0, &Value::from(property.name.clone().as_str()))]);
+        let parameter_value = property.value.clone();
+        match parameter_value {
+            ParameterValue::String(value) => {
+                model.set(&property_node, &[(1, &Value::from(value.as_str()))]);
+            }
+            ParameterValue::Float(value) => {
+                model.set(&property_node, &[(1, &Value::from(value.to_string().as_str()))]);
             },
-            x if x == float_type => {
-                let float_value = parameter_value.downcast_ref::<f32>().unwrap().to_string();
-                model.set(&property_node, &[(1, &Value::from(float_value.as_str()))]);
+            ParameterValue::Int(value) => {
+                model.set(&property_node, &[(1, &Value::from(value.to_string().as_str()))]);
             },
-            x if x == int_type => {
-                let int_value = parameter_value.downcast_ref::<i32>().unwrap().to_string();
-                model.set(&property_node, &[(1, &Value::from(int_value.as_str()))]);
+            ParameterValue::Bool(value) => {
+                model.set(&property_node, &[(1, &Value::from(value.to_string().as_str()))]);
             },
-            x if x == bool_type => {
-                let bool_value = parameter_value.downcast_ref::<bool>().unwrap().to_string();
-                model.set(&property_node, &[(1, &Value::from(bool_value.as_str()))]);
-            },
-            x if x == vec3_type => {
-                let vec3_value = parameter_value.downcast_ref::<Vec3>().unwrap();
-                let x = vec3_value.x.to_string();
-                let y = vec3_value.y.to_string();
-                let z = vec3_value.z.to_string();
+            ParameterValue::Vec3(value) => {
+                let x = value.x.to_string();
+                let y = value.y.to_string();
+                let z = value.z.to_string();
                 model.set(&property_node, &[(1, &Value::from(format!("{},{},{}", x, y, z).as_str()))]);
             },
-            x if x == quaternion_type => {
-                let quaternion_value = parameter_value.downcast_ref::<Quaternion>().unwrap();
-                let ypr = Quaternion::to_euler_angles_zyx(quaternion_value);
+            ParameterValue::Quaternion(value) => {
+                let ypr = Quaternion::to_euler_angles_zyx(&value);
                 let yaw = ypr.x.to_string();
                 let pitch = ypr.y.to_string();
                 let roll = ypr.z.to_string();
@@ -135,6 +120,7 @@ pub fn regen_inspector_from_component(it_treestore: Arc<Mutex<Option<gtk::TreeSt
             },
             _ => {
                 model.set(&property_node, &[(1, &Value::from("unknown"))]);
+                warn!("unknown parameter type");
             }
         }
     }
@@ -143,7 +129,7 @@ pub fn regen_inspector_from_component(it_treestore: Arc<Mutex<Option<gtk::TreeSt
 pub fn get_component_from_sb_treepath(sb_treestore: Arc<Mutex<Option<gtk::TreeStore>>>,
                                       worldmachine: Arc<Mutex<Option<Arc<Mutex<WorldMachine>>>>>,
                                       path: &gtk::TreePath,
-                                      entity_id_to_set: Arc<Mutex<Option<u32>>>) -> Option<Box<dyn Component>> {
+                                      entity_id_to_set: Arc<Mutex<Option<u64>>>) -> Option<Component> {
     let model = sb_treestore.clone();
     let model = model.lock().unwrap();
     let model = model.as_ref().unwrap();
@@ -166,7 +152,7 @@ pub fn get_component_from_sb_treepath(sb_treestore: Arc<Mutex<Option<gtk::TreeSt
     let entity_id = entity_id?;
     // set the current entity id
     let mut current_entity_id = entity_id_to_set.lock().unwrap();
-    *current_entity_id = Some(entity_id.parse::<u32>().unwrap());
+    *current_entity_id = Some(entity_id.parse::<u64>().unwrap());
     // get the worldmachine
     let worldmachine = worldmachine.lock().unwrap().as_ref().unwrap().clone();
     let worldmachine = worldmachine.lock().unwrap();
@@ -241,7 +227,7 @@ impl Editor {
             it_treestore: Arc<Mutex<Option<gtk::TreeStore>>>,
             worldmachine: Arc<Mutex<Option<Arc<Mutex<WorldMachine>>>>>,
             inspector_tree: gtk::TreeView,
-            entity_id_to_set: Arc<Mutex<Option<u32>>>,
+            entity_id_to_set: Arc<Mutex<Option<u64>>>,
         }
         let clicked_data = ClickedData {
             sb_treestore: self.sb_treestore.clone(),
@@ -378,10 +364,10 @@ impl Editor {
         model.set(&root, &[(0, &Value::from("worldmachine"))]);
         for entity in wm.clone().entities {
             let entity_node = model.append(Some(&root));
-            model.set(&entity_node, &[(0, &Value::from(entity.get_name().as_str())), (1, &Value::from(entity.get_id().to_string().as_str()))]);
+            model.set(&entity_node, &[(0, &Value::from(entity.get_name())), (1, &Value::from(entity.get_id().to_string().as_str()))]);
             for component in entity.get_components() {
                 let component_node = model.append(Some(&entity_node));
-                model.set(&component_node, &[(0, &Value::from(component.get_name().as_str()))]);
+                model.set(&component_node, &[(0, &Value::from(component.get_name()))]);
             }
         }
     }

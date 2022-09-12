@@ -81,7 +81,7 @@ impl Terrain {
 
                 glUniform3f(light_pos, light.position.x, light.position.y, light.position.z);
                 glUniform3f(light_color, light.color.x, light.color.y, light.color.z);
-                glUniform1f(light_intensity, light.intensity);
+                glUniform1f(light_intensity, light.intensity as f32);
             }
 
 

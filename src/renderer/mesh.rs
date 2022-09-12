@@ -5,7 +5,6 @@ use libsex::bindings::*;
 use crate::renderer::{H2eckRenderer, helpers, MAX_LIGHTS};
 use crate::renderer::shader::Shader;
 use crate::renderer::texture::Texture;
-use crate::worldmachine::components::Brush;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Mesh {
@@ -175,125 +174,6 @@ impl Mesh {
         })
     }
 
-    pub fn new_brush_mesh(brush: &Brush, shader: &Shader, renderer: &mut H2eckRenderer) -> Result<Self, MeshError> {
-        let point_a = brush.a;
-        let point_b = brush.b;
-        // generate a cube with the brush's dimensions
-        let vertices: Vec<f32> = vec![
-            // front
-            point_a.x, point_a.y, point_b.z,
-            point_b.x, point_a.y, point_b.z,
-            point_b.x, point_b.y, point_b.z,
-            point_a.x, point_b.y, point_b.z,
-            // back
-            point_a.x, point_a.y, point_a.z,
-            point_b.x, point_a.y, point_a.z,
-            point_b.x, point_b.y, point_a.z,
-            point_a.x, point_b.y, point_a.z,
-        ];
-        let indices = vec![
-            // front
-            0, 1, 2,
-            2, 3, 0,
-            // right
-            1, 5, 6,
-            6, 2, 1,
-            // back
-            7, 6, 5,
-            5, 4, 7,
-            // left
-            4, 0, 3,
-            3, 7, 4,
-            // top
-            4, 5, 1,
-            1, 0, 4,
-            // bottom
-            3, 2, 6,
-            6, 7, 3,
-        ];
-
-        let uvs = vec![
-            // front
-            0.0, 0.0,
-            1.0, 0.0,
-            1.0, 1.0,
-            0.0, 1.0,
-            // back
-            0.0, 0.0,
-            1.0, 0.0,
-            1.0, 1.0,
-            0.0, 1.0,
-        ];
-
-        let mut vao = 0;
-        let mut vbo = 0;
-        let mut ebo = 0;
-        let mut uvbo = 0;
-        let num_indices = indices.len();
-        let num_vertices = vertices.len();
-
-        unsafe {
-            // set the shader program
-            if renderer.current_shader != Some(shader.name.clone()) {
-                unsafe {
-                    glUseProgram(shader.program);
-                    renderer.current_shader = Some(shader.name.clone());
-                }
-            }
-
-            glGenVertexArrays(1, &mut vao);
-            glBindVertexArray(vao);
-            glGenBuffers(1, &mut vbo);
-            glBindBuffer(GL_ARRAY_BUFFER, vbo);
-            glBufferData(GL_ARRAY_BUFFER, (vertices.len() * std::mem::size_of::<f32>()) as GLsizeiptr, vertices.as_ptr() as *const GLvoid, GL_STATIC_DRAW);
-            // vertex positions for vertex shader
-            let pos = glGetAttribLocation(shader.program, CString::new("in_pos").unwrap().as_ptr());
-            glVertexAttribPointer(pos as GLuint, 3, GL_FLOAT, GL_FALSE as GLboolean, 0, null());
-            glEnableVertexAttribArray(0);
-
-            // uvs
-            glGenBuffers(1, &mut uvbo);
-            glBindBuffer(GL_ARRAY_BUFFER, uvbo);
-            glBufferData(GL_ARRAY_BUFFER, (uvs.len() * std::mem::size_of::<f32>()) as GLsizeiptr, uvs.as_ptr() as *const GLvoid, GL_STATIC_DRAW);
-            // vertex uvs for fragment shader
-            let uv = glGetAttribLocation(shader.program, CString::new("in_uv").unwrap().as_ptr());
-            glVertexAttribPointer(uv as GLuint, 2, GL_FLOAT, GL_FALSE as GLboolean, 0, null());
-            glEnableVertexAttribArray(1);
-
-
-            // now the indices
-            glGenBuffers(1, &mut ebo);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-            glBufferData(GL_ELEMENT_ARRAY_BUFFER, (indices.len() * std::mem::size_of::<i32>()) as GLsizeiptr, indices.as_ptr() as *const GLvoid, GL_STATIC_DRAW);
-        }
-
-        unsafe {
-            let mut error = glGetError();
-            while error != GL_NO_ERROR {
-                error!("OpenGL error while initialising mesh: {}", error);
-                error = glGetError();
-            }
-        }
-
-        // calculate the bounding box
-        let min = point_a;
-        let max = point_b;
-
-        Ok(Mesh {
-            position: Vec3::new(0.0, 0.0, 0.0),
-            rotation: Quaternion::identity(),
-            scale: Vec3::new(1.0, 1.0, 1.0),
-            vbo,
-            vao,
-            ebo,
-            uvbo,
-            top_left: min,
-            bottom_right: max,
-            num_vertices,
-            num_indices,
-        })
-    }
-
     pub fn render(&self, renderer: &mut H2eckRenderer, shader: &Shader, texture: Option<&Texture>) {
         // load the shader
         if renderer.current_shader != Some(shader.name.clone()) {
@@ -343,7 +223,7 @@ impl Mesh {
 
                 glUniform3f(light_pos, light.position.x, light.position.y, light.position.z);
                 glUniform3f(light_color, light.color.x, light.color.y, light.color.z);
-                glUniform1f(light_intensity, light.intensity);
+                glUniform1f(light_intensity, light.intensity as f32);
             }
 
             // transformation time!

@@ -3,6 +3,8 @@ use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 use gfx_maths::{Quaternion, Vec2, Vec3};
 use gtk::subclass::prelude::ObjectSubclassIsExt;
+use png::DecodingError::Parameter;
+use serde::{Deserialize, Serialize};
 use crate::{Cast, renderer};
 use crate::h2eck_window::editor::Editor;
 use crate::renderer::H2eckRenderer;
@@ -13,55 +15,13 @@ use crate::worldmachine::entities::new_ht2_entity;
 
 pub mod ecs;
 pub mod components;
-pub mod components_base_impl;
 pub mod entities;
-pub mod entities_base_impl;
 pub mod helpers;
 
+#[derive(Deserialize, Serialize)]
 pub struct World {
-    pub entities: Vec<Box<dyn Entity>>,
-    pub systems: Vec<Box<dyn System>>,
-}
-
-impl World {
-    pub fn serialize(&self) -> String {
-        let mut serialized = String::new();
-        for entity in &self.entities {
-            serialized += "{";
-            serialized += entity.to_serialization().as_str();
-            serialized += "}";
-        }
-        serialized
-    }
-
-    pub fn deserialize(serialzation: String) -> Result<Self, String> {
-        let mut world = World {
-            entities: Vec::new(),
-            systems: Vec::new(),
-        };
-
-        // first, split the serialization into entities
-        let mut entities = Vec::new();
-        let mut entity = String::new();
-        for c in serialzation.chars() {
-            if c == '{' {
-                entity = String::new();
-            } else if c == '}' {
-                entities.push(entity.clone());
-            } else {
-                entity.push(c);
-            }
-        }
-
-        // for each entity, deserialize it
-        for entity in entities {
-            let tmp = new_ht2_entity();
-            let actual_entity = tmp.from_serialization(entity.as_str())?;
-            world.entities.push(actual_entity);
-        }
-
-        Ok(world)
-    }
+    pub entities: Vec<Entity>,
+    pub systems: Vec<System>,
 }
 
 impl Clone for World {
@@ -107,9 +67,9 @@ impl Default for WorldMachine {
 
 impl WorldMachine {
     pub fn initialise(&mut self, editor: Arc<Mutex<Option<Editor>>>) {
-        let mut ht2 = Box::new(new_ht2_entity());
-        ht2.set_component_parameter(COMPONENT_TYPE_TRANSFORM.clone(), "position", Box::new(Vec3::new(0.0, 5.0, 4.0)));
-        let light_component = Box::new(Light::new(Vec3::new(0.0, 1.0, 0.0), Vec3::new(1.0, 1.0, 1.0), 1.0));
+        let mut ht2 = new_ht2_entity();
+        ht2.set_component_parameter(COMPONENT_TYPE_TRANSFORM.clone(), "position", ParameterValue::Vec3(Vec3::new(0.0, 5.0, 4.0)));
+        let light_component = Light::new(Vec3::new(0.0, 1.0, 0.0), Vec3::new(1.0, 1.0, 1.0), 1.0);
         ht2.add_component(light_component);
         self.world.entities.push(ht2);
         self.editor = editor;
@@ -117,27 +77,23 @@ impl WorldMachine {
             let editor = self.editor.lock().unwrap();
             editor.as_ref().unwrap().imp().regen_model_from_world(&mut self.world);
         }
-
-        // as a test, save and load the world
-        //self.save_state_to_file("test_world.map");
-        self.load_state_from_file("test_world.map");
     }
 
     pub fn save_state_to_file(&self, file_path: &str) {
-        let serialized = self.world.serialize();
+        let serialized = serde_yaml::to_string(&self.world).unwrap();
         std::fs::write(file_path, serialized).expect("unable to write file");
     }
 
     pub fn load_state_from_file(&mut self, file_path: &str) {
         let contents = std::fs::read_to_string(file_path).expect("something went wrong reading the file");
-        let world = World::deserialize(contents).unwrap();
+        let world = serde_yaml::from_str(&contents).unwrap();
         self.world = world;
         let editor = self.editor.lock().unwrap();
         editor.as_ref().unwrap().imp().regen_model_from_world(&mut self.world);
     }
 
     #[allow(clippy::borrowed_box)]
-    pub fn get_entity(&self, entity_id: u32) -> Option<Arc<Mutex<&Box<dyn Entity>>>> {
+    pub fn get_entity(&self, entity_id: u64) -> Option<Arc<Mutex<&Entity>>> {
         for entity in self.world.entities.iter() {
             if entity.get_id() == entity_id {
                 return Some(Arc::new(Mutex::new(entity)));
@@ -146,7 +102,7 @@ impl WorldMachine {
         None
     }
 
-    pub fn get_entity_index(&self, entity_id: u32) -> Option<usize> {
+    pub fn get_entity_index(&self, entity_id: u64) -> Option<usize> {
         for (index, entity) in self.world.entities.iter().enumerate() {
             if entity.get_id() == entity_id {
                 return Some(index);
@@ -155,7 +111,7 @@ impl WorldMachine {
         None
     }
 
-    pub fn attempt_to_set_component_property(&mut self, entity_id: u32, component_name: String, property_name: String, value: String) {
+    pub fn attempt_to_set_component_property(&mut self, entity_id: u64, component_name: String, property_name: String, value: String) {
         // as component properties are now different, tell the renderer that the lights have changed
         self.lights_changed = true;
 
@@ -185,24 +141,16 @@ impl WorldMachine {
         // if type is bool, interpret "true" as true and "false" as false and set bool
         // if type is u32, convert to u32 and set u32
         // if type is i32, convert to i32 and set i32
-        let string_type = std::any::TypeId::of::<String>();
-        let float_type = std::any::TypeId::of::<f32>();
-        let vec3_type = std::any::TypeId::of::<Vec3>();
-        let quaternion_type = std::any::TypeId::of::<Quaternion>();
-        let bool_type = std::any::TypeId::of::<bool>();
-        let u32_type = std::any::TypeId::of::<u32>();
-        let i32_type = std::any::TypeId::of::<i32>();
-        let type_id = parameter.value.deref().type_id();
-        match type_id {
-            x if x == string_type => {
+        match parameter.value.clone() {
+            ParameterValue::String(_) => {
                 let mut value = value.clone();
-                self.world.entities[entity_index].set_component_parameter(component.get_type(), &*property_name, Box::new(value));
+                self.world.entities[entity_index].set_component_parameter(component.get_type(), &*property_name, ParameterValue::String(value));
             },
-            x if x == float_type => {
-                let value = value.parse::<f32>().unwrap();
-                self.world.entities[entity_index].set_component_parameter(component.get_type(), &*property_name, Box::new(value));
+            ParameterValue::Float(_) => {
+                let value = value.parse::<f64>().unwrap();
+                self.world.entities[entity_index].set_component_parameter(component.get_type(), &*property_name, ParameterValue::Float(value));
             },
-            x if x == vec3_type => {
+            ParameterValue::Vec3(_) => {
                 let mut value = value;
                 let mut x = 0.0;
                 let mut y = 0.0;
@@ -215,9 +163,9 @@ impl WorldMachine {
                 } else {
                     x = value.parse::<f32>().unwrap();
                 }
-                self.world.entities[entity_index].set_component_parameter(component.get_type(), &property_name, Box::new(Vec3::new(x, y, z)));
+                self.world.entities[entity_index].set_component_parameter(component.get_type(), &property_name, ParameterValue::Vec3(Vec3::new(x, y, z)));
             },
-            x if x == quaternion_type => {
+            ParameterValue::Quaternion(_) => {
                 let mut value = value;
                 let mut y = 0.0;
                 let mut p = 0.0;
@@ -230,19 +178,19 @@ impl WorldMachine {
                 } else {
                     y = value.parse::<f32>().unwrap();
                 }
-                self.world.entities[entity_index].set_component_parameter(component.get_type(), &property_name, Box::new(Quaternion::from_euler_angles_zyx(&Vec3::new(y, p, r))));
+                self.world.entities[entity_index].set_component_parameter(component.get_type(), &property_name, ParameterValue::Quaternion(Quaternion::from_euler_angles_zyx(&Vec3::new(y, p, r))));
             },
-            x if x == bool_type => {
+            ParameterValue::Bool(_) => {
                 let value = value.parse::<bool>().unwrap();
-                self.world.entities[entity_index].set_component_parameter(component.get_type(), &property_name, Box::new(value));
+                self.world.entities[entity_index].set_component_parameter(component.get_type(), &property_name, ParameterValue::Bool(value));
             },
-            x if x == u32_type => {
-                let value = value.parse::<u32>().unwrap();
-                self.world.entities[entity_index].set_component_parameter(component.get_type(), &property_name, Box::new(value));
+            ParameterValue::UnsignedInt(_) => {
+                let value = value.parse::<u64>().unwrap();
+                self.world.entities[entity_index].set_component_parameter(component.get_type(), &property_name, ParameterValue::UnsignedInt(value));
             },
-            x if x == i32_type => {
+            ParameterValue::Int(_) => {
                 let value = value.parse::<i32>().unwrap();
-                self.world.entities[entity_index].set_component_parameter(component.get_type(), &property_name, Box::new(value));
+                self.world.entities[entity_index].set_component_parameter(component.get_type(), &property_name, ParameterValue::Int(value));
             },
             _ => {
                 error!("attempt_to_set_component_property: unknown type: {:?}", parameter.value);
@@ -273,15 +221,39 @@ impl WorldMachine {
             if let Some(light) = light_component {
                 let mut light = light.clone();
                 let position = light.get_parameter("position").unwrap();
-                let mut position = *position.value.downcast_ref::<Vec3>().unwrap();
-                let color = light.get_parameter("color").unwrap();
-                let color = *color.value.downcast_ref::<Vec3>().unwrap();
+                let mut position = match position.value {
+                    ParameterValue::Vec3(v) => v,
+                    _ => {
+                        error!("send_lights_to_renderer: light position is not a vec3");
+                        Vec3::new(0.0, 0.0, 0.0)
+                    }
+                };
+                let color = light.get_parameter("colour").unwrap();
+                let color = match color.value {
+                    ParameterValue::Vec3(v) => v,
+                    _ => {
+                        error!("send_lights_to_renderer: light color is not a vec3");
+                        Vec3::new(0.0, 0.0, 0.0)
+                    }
+                };
                 let intensity = light.get_parameter("intensity").unwrap();
-                let intensity = *intensity.value.downcast_ref::<f32>().unwrap();
+                let intensity = match intensity.value {
+                    ParameterValue::Float(v) => v,
+                    _ => {
+                        error!("send_lights_to_renderer: light intensity is not a float");
+                        0.0
+                    }
+                };
                 if let Some(transform) = transform_component {
                     let transform = transform.clone();
                     let trans_position = transform.get_parameter("position").unwrap();
-                    let trans_position = trans_position.value.downcast_ref::<Vec3>().unwrap();
+                    let trans_position = match trans_position.value {
+                        ParameterValue::Vec3(v) => v,
+                        _ => {
+                            error!("send_lights_to_renderer: transform position is not a vec3");
+                            Vec3::new(0.0, 0.0, 0.0)
+                        }
+                    };
                     position = position + trans_position;
                 }
                 lights.push(renderer::light::Light{
@@ -300,7 +272,13 @@ impl WorldMachine {
             if let Some(mesh_renderer) = entity.get_component(COMPONENT_TYPE_MESH_RENDERER.clone()) {
                 if let Some(mesh) = mesh_renderer.get_parameter("mesh") {
                     // get the string value of the mesh
-                    let mesh_name = mesh.value.downcast::<String>().unwrap();
+                    let mesh_name = match mesh.value {
+                        ParameterValue::String(ref s) => s.clone(),
+                        _ => {
+                            error!("render: mesh is not a string");
+                            continue;
+                        }
+                    };
                     // if so, render it
                     let shaders = renderer.shaders.clone().unwrap();
                     let meshes = renderer.meshes.clone().unwrap();
@@ -309,8 +287,20 @@ impl WorldMachine {
                         let mut mesh = *mesh;
                         let shader = mesh_renderer.get_parameter("shader").unwrap();
                         let texture = mesh_renderer.get_parameter("texture").unwrap();
-                        let shader_name = shader.value.downcast::<String>().unwrap();
-                        let texture_name = texture.value.downcast::<String>().unwrap();
+                        let shader_name = match shader.value {
+                            ParameterValue::String(ref s) => s.clone(),
+                            _ => {
+                                error!("render: shader is not a string");
+                                continue;
+                            }
+                        };
+                        let texture_name = match texture.value {
+                            ParameterValue::String(ref s) => s.clone(),
+                            _ => {
+                                error!("render: texture is not a string");
+                                continue;
+                            }
+                        };
                         let shaders = renderer.shaders.clone().unwrap();
                         let textures = renderer.textures.clone().unwrap();
                         let shader = shaders.get(&*shader_name);
@@ -325,17 +315,35 @@ impl WorldMachine {
                         // if this entity has a transform, apply it
                         if let Some(transform) = entity.get_component(COMPONENT_TYPE_TRANSFORM.clone()) {
                             if let Some(position) = transform.get_parameter("position") {
-                                let position = position.value.downcast::<Vec3>().unwrap();
-                                mesh.position += *position;
+                                let position = match position.value {
+                                    ParameterValue::Vec3(v) => v,
+                                    _ => {
+                                        error!("render: transform position is not a vec3");
+                                        continue;
+                                    }
+                                };
+                                mesh.position += position;
                             }
                             if let Some(rotation) = transform.get_parameter("rotation") {
-                                let rotation = rotation.value.downcast::<Quaternion>().unwrap();
+                                let rotation = match rotation.value {
+                                    ParameterValue::Quaternion(v) => v,
+                                    _ => {
+                                        error!("render: transform rotation is not a quaternion");
+                                        continue;
+                                    }
+                                };
                                 // add a bit of rotation to the transform to make things more interesting
-                                mesh.rotation = *rotation;
+                                mesh.rotation = rotation;
                             }
                             if let Some(scale) = transform.get_parameter("scale") {
-                                let scale = scale.value.downcast::<Vec3>().unwrap();
-                                mesh.scale += *scale;
+                                let scale = match scale.value {
+                                    ParameterValue::Vec3(v) => v,
+                                    _ => {
+                                        error!("render: transform scale is not a vec3");
+                                        continue;
+                                    }
+                                };
+                                mesh.scale += scale;
                             }
                         }
 

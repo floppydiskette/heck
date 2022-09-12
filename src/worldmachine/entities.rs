@@ -3,17 +3,25 @@ use gfx_maths::*;
 use crate::worldmachine::components::*;
 use crate::worldmachine::ecs::*;
 
-pub struct EntityBase {
-    pub name: String,
-    pub id: u32,
-    pub components: HashMap<ComponentType, Box<dyn Component>>,
-    pub children: Vec<Box<dyn Entity>>,
-    pub parent: Option<Box<dyn Entity>>,
+impl Entity {
+    pub fn new(name: &str) -> Entity {
+        Self {
+            name: name.to_string(),
+            uid: ENTITY_ID_MANAGER.lock().unwrap().get_id(),
+            components: Vec::new(),
+            children: Vec::new(),
+            parent: None,
+        }
+    }
+
+    pub fn add_component(&mut self, component: Component) {
+        self.components.push(component);
+    }
 }
 
-pub fn new_ht2_entity() -> EntityBase {
-    let mut entity = EntityBase::new("ht2");
-    entity.add_component(Box::new(Transform::default()));
-    entity.add_component(Box::new(MeshRenderer::new_from_mesh("ht2")));
+pub fn new_ht2_entity() -> Entity {
+    let mut entity = Entity::new("ht2");
+    entity.add_component(Transform::default());
+    entity.add_component(MeshRenderer::default());
     entity
 }
