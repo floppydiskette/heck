@@ -16,10 +16,52 @@ pub mod components;
 pub mod components_base_impl;
 pub mod entities;
 pub mod entities_base_impl;
+pub mod helpers;
 
 pub struct World {
     pub entities: Vec<Box<dyn Entity>>,
     pub systems: Vec<Box<dyn System>>,
+}
+
+impl World {
+    pub fn serialize(&self) -> String {
+        let mut serialized = String::new();
+        for entity in &self.entities {
+            serialized += "{";
+            serialized += entity.to_serialization().as_str();
+            serialized += "}";
+        }
+        serialized
+    }
+
+    pub fn deserialize(serialzation: String) -> Result<Self, String> {
+        let mut world = World {
+            entities: Vec::new(),
+            systems: Vec::new(),
+        };
+
+        // first, split the serialization into entities
+        let mut entities = Vec::new();
+        let mut entity = String::new();
+        for c in serialzation.chars() {
+            if c == '{' {
+                entity = String::new();
+            } else if c == '}' {
+                entities.push(entity.clone());
+            } else {
+                entity.push(c);
+            }
+        }
+
+        // for each entity, deserialize it
+        for entity in entities {
+            let tmp = new_ht2_entity();
+            let actual_entity = tmp.from_serialization(entity.as_str())?;
+            world.entities.push(actual_entity);
+        }
+
+        Ok(world)
+    }
 }
 
 impl Clone for World {
@@ -71,6 +113,25 @@ impl WorldMachine {
         ht2.add_component(light_component);
         self.world.entities.push(ht2);
         self.editor = editor;
+        {
+            let editor = self.editor.lock().unwrap();
+            editor.as_ref().unwrap().imp().regen_model_from_world(&mut self.world);
+        }
+
+        // as a test, save and load the world
+        self.save_state_to_file("test_world.map");
+        self.load_state_from_file("test_world.map");
+    }
+
+    pub fn save_state_to_file(&self, file_path: &str) {
+        let serialized = self.world.serialize();
+        std::fs::write(file_path, serialized).expect("unable to write file");
+    }
+
+    pub fn load_state_from_file(&mut self, file_path: &str) {
+        let contents = std::fs::read_to_string(file_path).expect("something went wrong reading the file");
+        let world = World::deserialize(contents).unwrap();
+        self.world = world;
         let editor = self.editor.lock().unwrap();
         editor.as_ref().unwrap().imp().regen_model_from_world(&mut self.world);
     }

@@ -1,0 +1,8 @@
+{name: ht2
+id: 1
+components:
+  - transform:scale[1,1,1],rotation[0,0,0,1],position[0,5,4]
+  - meshrenderer:shader[basic],mesh[ht2],texture[default]
+  - light:intensity[1],color[1,1,1],position[0,1,0]
+children:
+}

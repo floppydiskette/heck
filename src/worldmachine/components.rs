@@ -52,19 +52,6 @@ impl MeshRenderer {
     }
 }
 
-impl Brush {
-    #[allow(clippy::field_reassign_with_default)]
-    pub fn new(a: Vec3, b: Vec3, shader: &Shader, renderer: &mut H2eckRenderer) -> Self {
-        let mut default = Self::default();
-        default.a = a;
-        default.b = b;
-        let mesh = Mesh::new_brush_mesh(&default, shader, renderer).unwrap();
-        renderer.meshes.as_mut().unwrap().insert(format!("brush{}", default.component_type.id), mesh);
-        default.mesh = format!("brush{}", default.component_type.id);
-        default
-    }
-}
-
 impl Light {
     #[allow(clippy::field_reassign_with_default)]
     pub fn new(position: Vec3, color: Vec3, intensity: f32) -> Self {
