@@ -13,6 +13,7 @@ use gtk::glib::{Type, Value};
 use crate::gio;
 use crate::gio::glib::clone;
 use crate::gio::SimpleAction;
+use crate::h2eck_window::entity_picker::EntityPicker;
 use crate::renderer::H2eckRenderer;
 use crate::worldmachine::{World, WorldMachine};
 use crate::worldmachine::ecs::{Component, ParameterValue};
@@ -58,6 +59,12 @@ pub struct Editor {
     pub add_component: TemplateChild<gtk::Button>,
     #[template_child]
     pub remove_component: TemplateChild<gtk::Button>,
+
+    // sb buttons
+    #[template_child]
+    pub add_entity: TemplateChild<gtk::Button>,
+    #[template_child]
+    pub remove_entity: TemplateChild<gtk::Button>,
 
     pub sb_treestore: Arc<Mutex<Option<gtk::TreeStore>>>,
     pub it_treestore: Arc<Mutex<Option<gtk::TreeStore>>>,
@@ -411,6 +418,20 @@ impl Editor {
                 }
             });
             dialog.show();
+        });
+
+        // setup the callback for clicking the add entity button
+        let worldmachine = self.worldmachine.clone();
+        let window = self.window.clone();
+        self.add_entity.connect_clicked(move |_| {
+            let worldmachine = worldmachine.lock().unwrap().as_ref().unwrap().clone();
+            let window = window.clone();
+            let window_clone = window.clone();
+            let window = window.lock().unwrap();
+            let window = window.as_ref().unwrap();
+
+            let mut entity_picker = EntityPicker::new();
+            entity_picker.show();
         });
     }
 
