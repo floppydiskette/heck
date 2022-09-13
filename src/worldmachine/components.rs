@@ -9,6 +9,7 @@ lazy_static! {
     pub static ref COMPONENT_TYPE_TRANSFORM: ComponentType = ComponentType::create_if_not_exists("Transform");
     pub static ref COMPONENT_TYPE_MESH_RENDERER: ComponentType = ComponentType::create_if_not_exists("MeshRenderer");
     pub static ref COMPONENT_TYPE_LIGHT: ComponentType = ComponentType::create_if_not_exists("Light");
+    pub static ref COMPONENT_TYPE_TERRAIN: ComponentType = ComponentType::create_if_not_exists("Terrain");
 }
 
 pub struct Transform {}
@@ -68,5 +69,23 @@ impl Light {
     }
     pub fn default() -> Component {
         Self::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 1.0, 1.0), 1.0)
+    }
+}
+
+pub struct Terrain {}
+
+impl Terrain {
+    pub fn new(name: &str) -> Component {
+        let mut parameters = HashMap::new();
+        parameters.insert("name".to_string(), Parameter::new("name", ParameterValue::String(name.to_string())));
+
+        Component {
+            name: "Terrain".to_string(),
+            parameters,
+            component_type: COMPONENT_TYPE_TERRAIN.clone(),
+        }
+    }
+    pub fn default() -> Component {
+        Self::new("default")
     }
 }

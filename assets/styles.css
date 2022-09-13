@@ -5,3 +5,39 @@ popover contents {
 popover contents * {
   border-radius: 0;
 }
+
+button {
+  border-radius: 0;
+  padding: 0 12px;
+  font-size: 11px;
+  box-sizing: border-box;
+  background: #c0c0c0;
+  box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #fff, inset -2px -2px #808080, inset 2px 2px #dfdfdf;
+  color: #000;
+}
+
+button:active {
+  box-shadow: inset -1px -1px #ffffff, inset 1px 1px #0a0a0a, inset -2px -2px #dfdfdf, inset 2px 2px #808080;
+}
+
+entry {
+  border-radius: 0;
+  padding: 0 2px;
+  margin: 2px;
+  box-sizing: border-box;
+  appearance: none;
+  box-shadow: inset -1px -1px #ffffff, inset 1px 1px #808080, inset -2px -2px #dfdfdf, inset 2px 2px #0a0a0a;
+  background-color: #ffffff;
+}
+
+filechooser {
+  border-radius: 0;
+  margin: 2px;
+  box-sizing: border-box;
+  appearance: none;
+}
+
+filechooser button {
+  padding: 0;
+  height: 4px;
+}

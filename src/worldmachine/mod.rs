@@ -56,7 +56,7 @@ impl Default for WorldMachine {
             systems: Vec::new(),
         };
         Self {
-            world: world,
+            world,
             game_data_path: String::from(""),
             counter: 0.0,
             editor: Arc::new(Mutex::new(Option::None)),

@@ -211,15 +211,15 @@ impl H2eckRenderer {
         Shader::load_shader(self, "basic").expect("failed to load shader");
         Shader::load_shader(self, "terrain").expect("failed to load shader (terrain)");
         Texture::load_texture("default", "default/default", self).expect("failed to load default texture");
-        Texture::load_texture("grass1", "terrain/grass1", self).expect("failed to load grass1 texture");
-        Texture::load_texture("dirt1", "terrain/dirt1", self).expect("failed to load dirt1 texture");
-        Texture::load_texture("rock1", "terrain/rock1", self).expect("failed to load rock1 texture");
-        Texture::load_texture("sand1", "terrain/sand1", self).expect("failed to load sand1 texture");
-
-        let terrain = Terrain::new_from_name("ll_main", self).expect("failed to load terrain");
-
+        //Texture::load_texture("grass1", "terrain/grass1", self).expect("failed to load grass1 texture");
+        //Texture::load_texture("dirt1", "terrain/dirt1", self).expect("failed to load dirt1 texture");
+        //Texture::load_texture("rock1", "terrain/rock1", self).expect("failed to load rock1 texture");
+        //Texture::load_texture("sand1", "terrain/sand1", self).expect("failed to load sand1 texture");
+//
+        //let terrain = Terrain::new_from_name("ll_main", self).expect("failed to load terrain");
+//
         self.terrains = Some(HashMap::new());
-        self.terrains.as_mut().unwrap().insert("ll_main".to_string(), terrain);
+        //self.terrains.as_mut().unwrap().insert("ll_main".to_string(), terrain);
 
         let mut ht2_mesh =
             Mesh::new(format!("{}/models/ht2.glb", self.data_dir).as_str(), "ht2",

@@ -32,6 +32,11 @@
                         <property name="label">Save As</property>
                     </object>
                 </child>
+                <child>
+                    <object class="GtkButton" id="bake_and_export">
+                        <property name="label">Bake Lighting and Export</property>
+                    </object>
+                </child>
             </object>
         </child>
         <child>
