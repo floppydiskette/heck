@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use gfx_maths::*;
 use crate::renderer::H2eckRenderer;
 use crate::renderer::mesh::Mesh;
@@ -16,7 +16,7 @@ pub struct Transform {}
 
 impl Transform {
     pub fn new(position: Vec3, rotation: Quaternion, scale: Vec3) -> Component {
-        let mut parameters = HashMap::new();
+        let mut parameters = BTreeMap::new();
         parameters.insert("position".to_string(), Parameter::new("position", ParameterValue::Vec3(position)));
         parameters.insert("rotation".to_string(), Parameter::new("rotation", ParameterValue::Quaternion(rotation)));
         parameters.insert("scale".to_string(), Parameter::new("scale", ParameterValue::Vec3(scale)));
@@ -36,7 +36,7 @@ pub struct MeshRenderer {}
 
 impl MeshRenderer {
     pub fn new(mesh: String, shader: String, texture: String) -> Component {
-        let mut parameters = HashMap::new();
+        let mut parameters = BTreeMap::new();
         parameters.insert("mesh".to_string(), Parameter::new("mesh", ParameterValue::String(mesh)));
         parameters.insert("shader".to_string(), Parameter::new("shader", ParameterValue::String(shader)));
         parameters.insert("texture".to_string(), Parameter::new("texture", ParameterValue::String(texture)));
@@ -56,7 +56,7 @@ pub struct Light {}
 
 impl Light {
     pub fn new(position: Vec3, colour: Vec3, intensity: f64) -> Component {
-        let mut parameters = HashMap::new();
+        let mut parameters = BTreeMap::new();
         parameters.insert("position".to_string(), Parameter::new("position", ParameterValue::Vec3(position)));
         parameters.insert("colour".to_string(), Parameter::new("colour", ParameterValue::Vec3(colour)));
         parameters.insert("intensity".to_string(), Parameter::new("intensity", ParameterValue::Float(intensity)));
@@ -76,7 +76,7 @@ pub struct Terrain {}
 
 impl Terrain {
     pub fn new(name: &str) -> Component {
-        let mut parameters = HashMap::new();
+        let mut parameters = BTreeMap::new();
         parameters.insert("name".to_string(), Parameter::new("name", ParameterValue::String(name.to_string())));
 
         Component {

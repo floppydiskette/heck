@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 use gfx_maths::{Quaternion, Vec2, Vec3};
@@ -35,7 +35,7 @@ impl Parameter {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Component {
     pub name: String,
-    pub parameters: HashMap<String, Parameter>,
+    pub parameters: BTreeMap<String, Parameter>,
     pub component_type: ComponentType,
 }
 
@@ -60,7 +60,7 @@ impl Component {
         &self.name
     }
 
-    pub fn get_parameters(&self) -> &HashMap<String, Parameter> {
+    pub fn get_parameters(&self) -> &BTreeMap<String, Parameter> {
         &self.parameters
     }
 
