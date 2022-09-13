@@ -23,6 +23,7 @@ pub mod helpers;
 pub struct World {
     pub entities: Vec<Entity>,
     pub systems: Vec<System>,
+    eid_manager: u64,
 }
 
 impl Clone for World {
@@ -38,6 +39,7 @@ impl Clone for World {
         World {
             entities,
             systems,
+            eid_manager: 0,
         }
     }
 }
@@ -48,7 +50,6 @@ pub struct WorldMachine {
     pub counter: f32,
     pub editor: Arc<Mutex<Option<Editor>>>,
     lights_changed: bool,
-    eid_manager: u64,
 }
 
 impl Default for WorldMachine {
@@ -56,6 +57,7 @@ impl Default for WorldMachine {
         let world = World {
             entities: Vec::new(),
             systems: Vec::new(),
+            eid_manager: 0,
         };
         Self {
             world,
@@ -63,7 +65,6 @@ impl Default for WorldMachine {
             counter: 0.0,
             editor: Arc::new(Mutex::new(Option::None)),
             lights_changed: true,
-            eid_manager: 0
         }
     }
 }
@@ -142,7 +143,7 @@ impl WorldMachine {
     pub fn save_state_to_file(&mut self, file_path: &str) {
         {
             let mut eid_manager = ENTITY_ID_MANAGER.lock().unwrap();
-            self.eid_manager = eid_manager.borrow().id;
+            self.world.eid_manager = eid_manager.borrow().id;
         }
         let serialized = serde_yaml::to_string(&self.world).unwrap();
         std::fs::write(file_path, serialized).expect("unable to write file");
@@ -155,7 +156,7 @@ impl WorldMachine {
 
         {
             let mut eid_manager = ENTITY_ID_MANAGER.lock().unwrap();
-            eid_manager.borrow_mut().id = self.eid_manager;
+            eid_manager.borrow_mut().id = self.world.eid_manager;
         }
 
         let editor = self.editor.lock().unwrap();
