@@ -22,7 +22,7 @@ use crate::worldmachine::ecs::{Component, ParameterValue};
 #[derive(CompositeTemplate, Default)]
 #[template(resource = "/com/realmicrosoft/h2eck/editor.ui")]
 pub struct Editor {
-    pub renderer: Arc<Mutex<H2eckRenderer>>,
+    pub renderer: Arc<Mutex<Arc<Mutex<H2eckRenderer>>>>,
     #[template_child]
     pub main_view: TemplateChild<GLArea>,
     #[template_child]
@@ -422,6 +422,7 @@ impl Editor {
 
         // setup the callback for clicking the add entity button
         let worldmachine = self.worldmachine.clone();
+        let renderer = self.renderer.clone();
         let window = self.window.clone();
         self.add_entity.connect_clicked(move |_| {
             let worldmachine = worldmachine.lock().unwrap().as_ref().unwrap().clone();
@@ -429,8 +430,14 @@ impl Editor {
             let window_clone = window.clone();
             let window = window.lock().unwrap();
             let window = window.as_ref().unwrap();
+            let renderer = renderer.clone();
+            let renderer = renderer.lock().unwrap();
 
             let mut entity_picker = EntityPicker::new();
+            // set worldmachine
+            *entity_picker.imp().worldmachine.clone().lock().unwrap() = Some(worldmachine);
+            *entity_picker.imp().renderer.clone().lock().unwrap() = renderer.clone();
+            entity_picker.imp().populate_listbox();
             entity_picker.show();
         });
     }

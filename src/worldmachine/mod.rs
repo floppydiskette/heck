@@ -1,13 +1,14 @@
 use std::any::Any;
 use std::borrow::{Borrow, BorrowMut};
 use std::ops::{Deref, DerefMut};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 use gfx_maths::{Quaternion, Vec2, Vec3};
 use gtk::subclass::prelude::ObjectSubclassIsExt;
 use png::DecodingError::Parameter;
 use serde::{Deserialize, Serialize};
 use crate::{Cast, renderer};
 use crate::h2eck_window::editor::Editor;
+use crate::renderer::camera::Camera;
 use crate::renderer::H2eckRenderer;
 use crate::renderer::raycasting::Ray;
 use crate::worldmachine::components::{COMPONENT_TYPE_LIGHT, COMPONENT_TYPE_MESH_RENDERER, COMPONENT_TYPE_TRANSFORM, Light, MeshRenderer};
@@ -71,8 +72,21 @@ impl Default for WorldMachine {
 
 impl WorldMachine {
     pub fn initialise(&mut self, editor: Arc<Mutex<Option<Editor>>>) {
+        // todo! get this from settings
+        self.game_data_path = String::from("../huskyTech2/base");
+
         self.editor = editor;
         self.blank_slate();
+    }
+
+    fn regen_editor(&mut self) {
+        {
+            let editor = self.editor.lock().unwrap();
+            if editor.is_none() {
+                return;
+            }
+            editor.as_ref().unwrap().imp().regen_model_from_world(&mut self.world);
+        }
     }
 
     // resets the world to a blank slate
@@ -90,32 +104,53 @@ impl WorldMachine {
         let light_component = Light::new(Vec3::new(0.0, 1.0, 0.0), Vec3::new(1.0, 1.0, 1.0), 1.0);
         ht2.add_component(light_component);
         self.world.entities.push(ht2);
-        {
-            let editor = self.editor.lock().unwrap();
-            editor.as_ref().unwrap().imp().regen_model_from_world(&mut self.world);
-        }
+        self.regen_editor();
     }
 
-    pub fn load_entity_def(&mut self, name: &str) {
+    pub fn load_entity_def(&mut self, name: &str, center_at_camera: Option<Camera>) {
+        debug!("{}, {}", name, self.game_data_path);
         let path = format!("{}/entities/{}.edef", self.game_data_path, name);
-        let serialization = std::fs::read_to_string(path).unwrap();
+        let serialization = std::fs::read_to_string(path);
+        if serialization.is_err() {
+            error!("failed to load entity def: {}", name);
+            return;
+        }
+        let serialization = serialization.unwrap();
         let entity_def: EntityDef = serde_yaml::from_str(&serialization).unwrap();
-        let entity = Entity::from_entity_def(&entity_def);
+        let mut entity = Entity::from_entity_def(&entity_def);
+        if let Some(camera) = center_at_camera {
+            let mut position = camera.get_position();
+            position.y *= -1.0;
+            // if the entity has a transform component, set it's position to the raycast position
+            if entity.has_component(COMPONENT_TYPE_TRANSFORM.clone()) {
+                entity.set_component_parameter(COMPONENT_TYPE_TRANSFORM.clone(), "position", ParameterValue::Vec3(position));
+            }
+        }
         self.world.entities.push(entity);
+        self.regen_editor();
     }
 
     pub fn save_entity_def(&mut self, uid: u64) {
+        debug!("{}, {}", uid, self.game_data_path);
         let entity = self.get_entity(uid).unwrap();
         let entity = entity.lock().unwrap();
         let path = format!("{}/entities/{}.edef", self.game_data_path, entity.name);
         let entity_def = entity.to_entity_def();
         let serialization = serde_yaml::to_string(&entity_def).unwrap();
-        std::fs::write(path, serialization).unwrap();
+        let res = std::fs::write(path, serialization);
+        if res.is_err() {
+            error!("failed to save entity def: {}", res.err().unwrap());
+        }
     }
 
     pub fn list_possible_entities(&self) -> Vec<String> {
         let mut entities = Vec::new();
-        let paths = std::fs::read_dir(format!("{}/entities", self.game_data_path)).unwrap();
+        let paths = std::fs::read_dir(format!("{}/entities", self.game_data_path));
+        if paths.is_err() {
+            error!("failed to read entities directory!");
+            return entities;
+        }
+        let paths = paths.unwrap();
         for path in paths {
             let path = path.unwrap().path();
             let path = path.to_str().unwrap();
@@ -132,12 +167,14 @@ impl WorldMachine {
         let index = self.get_entity_index(uid).unwrap();
         let entity = self.world.entities.get_mut(index).unwrap();
         entity.add_component(component);
+        self.regen_editor();
     }
 
     pub fn remove_component_from_entity(&mut self, uid: u64, component_type: ComponentType) {
         let index = self.get_entity_index(uid).unwrap();
         let entity = self.world.entities.get_mut(index).unwrap();
         entity.remove_component(component_type);
+        self.regen_editor();
     }
 
     pub fn save_state_to_file(&mut self, file_path: &str) {
@@ -159,8 +196,7 @@ impl WorldMachine {
             eid_manager.borrow_mut().id = self.world.eid_manager;
         }
 
-        let editor = self.editor.lock().unwrap();
-        editor.as_ref().unwrap().imp().regen_model_from_world(&mut self.world);
+        self.regen_editor();
     }
 
     #[allow(clippy::borrowed_box)]
@@ -213,54 +249,61 @@ impl WorldMachine {
         // if type is u32, convert to u32 and set u32
         // if type is i32, convert to i32 and set i32
         match parameter.value.clone() {
-            ParameterValue::String(_) => {
+            ParameterValue::String(cv) => {
                 let mut value = value.clone();
                 self.world.entities[entity_index].set_component_parameter(component.get_type(), &*property_name, ParameterValue::String(value));
             },
-            ParameterValue::Float(_) => {
-                let value = value.parse::<f64>().unwrap();
+            ParameterValue::Float(cv) => {
+                let value = value.parse::<f64>().unwrap_or(cv);
                 self.world.entities[entity_index].set_component_parameter(component.get_type(), &*property_name, ParameterValue::Float(value));
             },
-            ParameterValue::Vec3(_) => {
+            ParameterValue::Vec3(cv) => {
                 let mut value = value;
                 let mut x = 0.0;
                 let mut y = 0.0;
                 let mut z = 0.0;
                 if value.contains(",") {
                     let mut split = value.split(",");
-                    x = split.next().unwrap().parse::<f32>().unwrap();
-                    y = split.next().unwrap().parse::<f32>().unwrap();
-                    z = split.next().unwrap().parse::<f32>().unwrap();
+                    x = split.next().unwrap().parse::<f32>().unwrap_or(cv.x);
+                    y = split.next().unwrap().parse::<f32>().unwrap_or(cv.y);
+                    z = split.next().unwrap().parse::<f32>().unwrap_or(cv.z);
                 } else {
-                    x = value.parse::<f32>().unwrap();
+                    x = value.parse::<f32>().unwrap_or(cv.x);
+                    y = value.parse::<f32>().unwrap_or(cv.y);
+                    z = value.parse::<f32>().unwrap_or(cv.z);
                 }
                 self.world.entities[entity_index].set_component_parameter(component.get_type(), &property_name, ParameterValue::Vec3(Vec3::new(x, y, z)));
             },
-            ParameterValue::Quaternion(_) => {
+            ParameterValue::Quaternion(cv) => {
                 let mut value = value;
+                let mut x = 0.0;
                 let mut y = 0.0;
-                let mut p = 0.0;
-                let mut r = 0.0;
+                let mut z = 0.0;
+                let mut w = 0.0;
                 if value.contains(",") {
                     let mut split = value.split(",");
-                    y = split.next().unwrap().parse::<f32>().unwrap();
-                    p = split.next().unwrap().parse::<f32>().unwrap();
-                    r = split.next().unwrap().parse::<f32>().unwrap();
+                    x = split.next().unwrap().parse::<f32>().unwrap_or(cv.x);
+                    y = split.next().unwrap().parse::<f32>().unwrap_or(cv.y);
+                    z = split.next().unwrap().parse::<f32>().unwrap_or(cv.z);
+                    w = split.next().unwrap().parse::<f32>().unwrap_or(cv.w);
                 } else {
-                    y = value.parse::<f32>().unwrap();
+                    x = value.parse::<f32>().unwrap_or(cv.x);
+                    y = value.parse::<f32>().unwrap_or(cv.y);
+                    z = value.parse::<f32>().unwrap_or(cv.z);
+                    w = value.parse::<f32>().unwrap_or(cv.w);
                 }
-                self.world.entities[entity_index].set_component_parameter(component.get_type(), &property_name, ParameterValue::Quaternion(Quaternion::from_euler_angles_zyx(&Vec3::new(y, p, r))));
+                self.world.entities[entity_index].set_component_parameter(component.get_type(), &property_name, ParameterValue::Quaternion(Quaternion::new(x, y, z, w)));
             },
-            ParameterValue::Bool(_) => {
-                let value = value.parse::<bool>().unwrap();
+            ParameterValue::Bool(cv) => {
+                let value = value.parse::<bool>().unwrap_or(cv);
                 self.world.entities[entity_index].set_component_parameter(component.get_type(), &property_name, ParameterValue::Bool(value));
             },
-            ParameterValue::UnsignedInt(_) => {
-                let value = value.parse::<u64>().unwrap();
+            ParameterValue::UnsignedInt(cv) => {
+                let value = value.parse::<u64>().unwrap_or(cv);
                 self.world.entities[entity_index].set_component_parameter(component.get_type(), &property_name, ParameterValue::UnsignedInt(value));
             },
-            ParameterValue::Int(_) => {
-                let value = value.parse::<i32>().unwrap();
+            ParameterValue::Int(cv) => {
+                let value = value.parse::<i32>().unwrap_or(cv);
                 self.world.entities[entity_index].set_component_parameter(component.get_type(), &property_name, ParameterValue::Int(value));
             },
             _ => {

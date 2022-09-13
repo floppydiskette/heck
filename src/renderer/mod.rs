@@ -28,6 +28,7 @@ use crate::worldmachine::{World, WorldMachine};
 pub static MAX_LIGHTS: usize = 100;
 pub static SHADOW_SIZE: usize = 1024;
 
+
 pub struct H2eckRenderer {
     pub state: H2eckState,
     pub data_dir: String,

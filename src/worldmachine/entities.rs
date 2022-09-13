@@ -24,6 +24,15 @@ impl Entity {
         self.components.push(component);
     }
 
+    pub fn has_component(&self, component_type: ComponentType) -> bool {
+        for existing_component in &self.components {
+            if existing_component.component_type == component_type {
+                return true;
+            }
+        }
+        return false;
+    }
+
     pub fn remove_component(&mut self, component_type: ComponentType) {
         self.components.retain(|component| component.component_type != component_type);
     }

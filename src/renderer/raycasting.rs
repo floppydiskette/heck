@@ -78,6 +78,10 @@ impl Ray {
         }
     }
 
+    pub fn from_center_screen(window_size: Vec2, camera: &Camera, max_distance: f32) -> Ray {
+        Ray::from_mouse_coords(Vec2::new(window_size.x / 2.0, window_size.y / 2.0), window_size, camera, max_distance)
+    }
+
     pub fn get_point(&self, distance: f32) -> Vec3 {
         self.origin + xyz(self.direction * distance)
     }

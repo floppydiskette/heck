@@ -56,6 +56,7 @@ impl h2eckWindow {
         let editor_obj = editor_obj.as_ref().unwrap();
 
         *editor_obj.imp().worldmachine.clone().lock().unwrap() = Some(self.worldmachine.clone());
+        *editor_obj.imp().renderer.clone().lock().unwrap() = self.renderer.clone();
         *editor_obj.imp().window.clone().lock().unwrap() = Some(obj.clone().upcast::<gtk::ApplicationWindow>());
 
         let renderer = obj.clone().imp().renderer.clone();
