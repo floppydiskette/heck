@@ -141,6 +141,14 @@ pub fn regen_inspector_from_component(it_treestore: Arc<Mutex<Option<gtk::TreeSt
     }
 }
 
+pub fn inspector_blank_slate(it_treestore: Arc<Mutex<Option<gtk::TreeStore>>>) {
+    let mut model = it_treestore.lock().unwrap();
+    let model = model.as_ref().unwrap();
+    model.clear();
+    let root = model.append(None);
+    model.set(&root, &[(0, &Value::from("No entity selected"))]);
+}
+
 pub fn get_component_from_sb_treepath(sb_treestore: Arc<Mutex<Option<gtk::TreeStore>>>,
                                       worldmachine: Arc<Mutex<Option<Arc<Mutex<WorldMachine>>>>>,
                                       path: &gtk::TreePath,
@@ -154,6 +162,7 @@ pub fn get_component_from_sb_treepath(sb_treestore: Arc<Mutex<Option<gtk::TreeSt
     let component_name = model.get_value(&iter, 0).get::<String>().unwrap();
     // the entity containing this component should be the first parent of the component
     let mut entity_id = None;
+    let mut saved_entity_id = model.get_value(&iter, 1).get::<String>();
     while let Some(parent) = model.iter_parent(&iter) {
         iter = parent;
         let tmp = model.get_value(&iter, 1).get::<String>();
@@ -163,6 +172,16 @@ pub fn get_component_from_sb_treepath(sb_treestore: Arc<Mutex<Option<gtk::TreeSt
             break;
         }
         path.up();
+    }
+
+    if entity_id.is_none() {
+        // we didn't find an entity id, so we can't get the component
+        // however, we might be able to get the entity id from the actual current selected row
+        // set the current entity id
+        if let Ok(id) = saved_entity_id {
+            let mut current_entity_id = entity_id_to_set.lock().unwrap();
+            *current_entity_id = id.parse::<u64>().ok();
+        }
     }
     let entity_id = entity_id?;
     // set the current entity id
@@ -258,6 +277,8 @@ impl Editor {
             let component = get_component_from_sb_treepath(sb_treestore, worldmachine, path, cd.entity_id_to_set.clone());
             if let Some(component) = component {
                 regen_inspector_from_component(it_treestore, &mut Box::new(component));
+            } else {
+                inspector_blank_slate(it_treestore);
             }
             cd.inspector_tree.expand_all();
         }));
@@ -439,6 +460,43 @@ impl Editor {
             *entity_picker.imp().renderer.clone().lock().unwrap() = renderer.clone();
             entity_picker.imp().populate_listbox();
             entity_picker.show();
+        });
+
+        // setup the callback for clicking the remove entity button
+        let worldmachine = self.worldmachine.clone();
+        let current_entity_id = self.current_entity_id.clone();
+        let it_treestore = self.it_treestore.clone();
+        let window = self.window.clone();
+        self.remove_entity.connect_clicked(move |_| {
+            let worldmachine = worldmachine.lock().unwrap().as_ref().unwrap().clone();
+            let window = window.clone();
+            let window = window.lock().unwrap();
+            let window = window.as_ref().unwrap();
+            let it_treestore = it_treestore.clone();
+            let current_entity_id = current_entity_id.clone();
+            let dialog = MessageDialog::new(Some(window), DialogFlags::MODAL, MessageType::Question, ButtonsType::YesNo, "Are you sure you want to delete this entity?");
+            dialog.set_title(Some("Delete Entity?"));
+            dialog.connect_response(move |dialog, response| {
+                match response {
+                    ResponseType::Yes => {
+                        let current_entity_id = current_entity_id.lock().unwrap();
+                        if let Some(current_entity_id) = current_entity_id.as_ref() {
+                            let mut worldmachine = worldmachine.lock().unwrap();
+                            let index = worldmachine.get_entity_index(*current_entity_id);
+                            if let Some(index) = index {
+                                worldmachine.remove_entity_at_index(index);
+                                inspector_blank_slate(it_treestore.clone());
+                            }
+                        }
+                        dialog.destroy();
+                    }
+                    ResponseType::No => {
+                        dialog.destroy();
+                    }
+                    _ => {}
+                }
+            });
+            dialog.show();
         });
     }
 

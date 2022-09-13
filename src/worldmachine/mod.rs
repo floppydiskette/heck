@@ -218,6 +218,11 @@ impl WorldMachine {
         None
     }
 
+    pub fn remove_entity_at_index(&mut self, index: usize) {
+        self.world.entities.remove(index);
+        self.regen_editor();
+    }
+
     pub fn attempt_to_set_component_property(&mut self, entity_id: u64, component_name: String, property_name: String, value: String) {
         // as component properties are now different, tell the renderer that the lights have changed
         self.lights_changed = true;
