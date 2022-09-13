@@ -120,7 +120,7 @@ impl WorldMachine {
         let mut entity = Entity::from_entity_def(&entity_def);
         if let Some(camera) = center_at_camera {
             let mut position = camera.get_position();
-            position.y *= -1.0;
+            position *= -1.0;
             // if the entity has a transform component, set it's position to the raycast position
             if entity.has_component(COMPONENT_TYPE_TRANSFORM.clone()) {
                 entity.set_component_parameter(COMPONENT_TYPE_TRANSFORM.clone(), "position", ParameterValue::Vec3(position));
