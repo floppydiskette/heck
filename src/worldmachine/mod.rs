@@ -1,5 +1,6 @@
 use std::any::Any;
-use std::ops::Deref;
+use std::borrow::{Borrow, BorrowMut};
+use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, Mutex};
 use gfx_maths::{Quaternion, Vec2, Vec3};
 use gtk::subclass::prelude::ObjectSubclassIsExt;
@@ -47,6 +48,7 @@ pub struct WorldMachine {
     pub counter: f32,
     pub editor: Arc<Mutex<Option<Editor>>>,
     lights_changed: bool,
+    eid_manager: u64,
 }
 
 impl Default for WorldMachine {
@@ -60,26 +62,88 @@ impl Default for WorldMachine {
             game_data_path: String::from(""),
             counter: 0.0,
             editor: Arc::new(Mutex::new(Option::None)),
-            lights_changed: true
+            lights_changed: true,
+            eid_manager: 0
         }
     }
 }
 
 impl WorldMachine {
     pub fn initialise(&mut self, editor: Arc<Mutex<Option<Editor>>>) {
+        self.editor = editor;
+        self.blank_slate();
+    }
+
+    // resets the world to a blank slate
+    pub fn blank_slate(&mut self) {
+        {
+            let mut eid_manager = ENTITY_ID_MANAGER.lock().unwrap();
+            eid_manager.borrow_mut().id = 0;
+        }
+        self.world.entities.clear();
+        self.world.systems.clear();
+        self.counter = 0.0;
+        self.lights_changed = true;
         let mut ht2 = new_ht2_entity();
-        ht2.set_component_parameter(COMPONENT_TYPE_TRANSFORM.clone(), "position", ParameterValue::Vec3(Vec3::new(0.0, 5.0, 4.0)));
+        ht2.set_component_parameter(COMPONENT_TYPE_TRANSFORM.clone(), "position", ParameterValue::Vec3(Vec3::new(0.0, 0.0, 2.0)));
         let light_component = Light::new(Vec3::new(0.0, 1.0, 0.0), Vec3::new(1.0, 1.0, 1.0), 1.0);
         ht2.add_component(light_component);
         self.world.entities.push(ht2);
-        self.editor = editor;
         {
             let editor = self.editor.lock().unwrap();
             editor.as_ref().unwrap().imp().regen_model_from_world(&mut self.world);
         }
     }
 
-    pub fn save_state_to_file(&self, file_path: &str) {
+    pub fn load_entity_def(&mut self, name: &str) {
+        let path = format!("{}/entities/{}.edef", self.game_data_path, name);
+        let serialization = std::fs::read_to_string(path).unwrap();
+        let entity_def: EntityDef = serde_yaml::from_str(&serialization).unwrap();
+        let entity = Entity::from_entity_def(&entity_def);
+        self.world.entities.push(entity);
+    }
+
+    pub fn save_entity_def(&mut self, uid: u64) {
+        let entity = self.get_entity(uid).unwrap();
+        let entity = entity.lock().unwrap();
+        let path = format!("{}/entities/{}.edef", self.game_data_path, entity.name);
+        let entity_def = entity.to_entity_def();
+        let serialization = serde_yaml::to_string(&entity_def).unwrap();
+        std::fs::write(path, serialization).unwrap();
+    }
+
+    pub fn list_possible_entities(&self) -> Vec<String> {
+        let mut entities = Vec::new();
+        let paths = std::fs::read_dir(format!("{}/entities", self.game_data_path)).unwrap();
+        for path in paths {
+            let path = path.unwrap().path();
+            let path = path.to_str().unwrap();
+            let path = path.split("/").collect::<Vec<&str>>();
+            let path = path[path.len() - 1];
+            let path = path.split(".").collect::<Vec<&str>>();
+            let path = path[0];
+            entities.push(String::from(path));
+        }
+        entities
+    }
+
+    pub fn give_component_to_entity(&mut self, uid: u64, component: Component) {
+        let index = self.get_entity_index(uid).unwrap();
+        let entity = self.world.entities.get_mut(index).unwrap();
+        entity.add_component(component);
+    }
+
+    pub fn remove_component_from_entity(&mut self, uid: u64, component_type: ComponentType) {
+        let index = self.get_entity_index(uid).unwrap();
+        let entity = self.world.entities.get_mut(index).unwrap();
+        entity.remove_component(component_type);
+    }
+
+    pub fn save_state_to_file(&mut self, file_path: &str) {
+        {
+            let mut eid_manager = ENTITY_ID_MANAGER.lock().unwrap();
+            self.eid_manager = eid_manager.borrow().id;
+        }
         let serialized = serde_yaml::to_string(&self.world).unwrap();
         std::fs::write(file_path, serialized).expect("unable to write file");
     }
@@ -88,6 +152,12 @@ impl WorldMachine {
         let contents = std::fs::read_to_string(file_path).expect("something went wrong reading the file");
         let world = serde_yaml::from_str(&contents).unwrap();
         self.world = world;
+
+        {
+            let mut eid_manager = ENTITY_ID_MANAGER.lock().unwrap();
+            eid_manager.borrow_mut().id = self.eid_manager;
+        }
+
         let editor = self.editor.lock().unwrap();
         editor.as_ref().unwrap().imp().regen_model_from_world(&mut self.world);
     }

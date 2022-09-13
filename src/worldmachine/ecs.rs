@@ -55,6 +55,12 @@ pub struct System {
     pub affected_entities: Vec<u64>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct EntityDef {
+    pub name: String,
+    pub components: Vec<Component>,
+}
+
 impl Component {
     pub fn get_name(&self) -> &str {
         &self.name

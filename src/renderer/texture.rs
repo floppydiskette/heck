@@ -32,8 +32,8 @@ pub struct Image {
 }
 
 impl Texture {
-    pub fn load_texture(name: &str, path: &str, renderer: &mut H2eckRenderer) -> Result<(), String> {
-        let texture = Texture::new_from_name(path.to_string(), renderer, false);
+    pub fn load_texture(name: &str, path: &str, renderer: &mut H2eckRenderer, simple: bool) -> Result<(), String> {
+        let texture = Texture::new_from_name(path.to_string(), renderer, simple);
         if let Ok(texture) = texture {
             renderer.textures.as_mut().unwrap().insert(name.to_string(), texture);
             Ok(())
@@ -85,9 +85,15 @@ impl Texture {
             }
 
             if !simple {
+                let normal_data = load_image(normal_file_name.as_str())?;
+                let metallic_data = load_image(metallic_file_name.as_str())?;
+                let roughness_data = load_image(roughness_file_name.as_str())?;
+
+                assert!(diffuse_data.dimensions.0 == metallic_data.dimensions.0 && diffuse_data.dimensions.1 == metallic_data.dimensions.1);
+                assert!(diffuse_data.dimensions.0 == roughness_data.dimensions.0 && diffuse_data.dimensions.1 == roughness_data.dimensions.1);
+                assert!(diffuse_data.dimensions.0 == normal_data.dimensions.0 && diffuse_data.dimensions.1 == normal_data.dimensions.1);
 
                 // normal texture
-                let normal_data = load_image(normal_file_name.as_str())?;
                 unsafe {
                     glBindTexture(GL_TEXTURE_2D, normal_texture);
                     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA as i32, normal_data.dimensions.0 as i32, normal_data.dimensions.1 as i32, 0, GL_RGBA, GL_UNSIGNED_BYTE, normal_data.data.as_ptr() as *const GLvoid);
@@ -100,7 +106,6 @@ impl Texture {
                 }
 
                 // metallic texture
-                let metallic_data = load_image(metallic_file_name.as_str())?;
                 unsafe {
                     glBindTexture(GL_TEXTURE_2D, metallic_texture);
                     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA as i32, metallic_data.dimensions.0 as i32, metallic_data.dimensions.1 as i32, 0, GL_RGBA, GL_UNSIGNED_BYTE, metallic_data.data.as_ptr() as *const GLvoid);
@@ -113,7 +118,6 @@ impl Texture {
                 }
 
                 // roughness texture
-                let roughness_data = load_image(roughness_file_name.as_str())?;
                 unsafe {
                     glBindTexture(GL_TEXTURE_2D, roughness_texture);
                     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA as i32, roughness_data.dimensions.0 as i32, roughness_data.dimensions.1 as i32, 0, GL_RGBA, GL_UNSIGNED_BYTE, roughness_data.data.as_ptr() as *const GLvoid);

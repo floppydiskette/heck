@@ -37,6 +37,16 @@
                         <property name="label">Bake Lighting and Export</property>
                     </object>
                 </child>
+                <child>
+                    <object class="GtkButton" id="add_entity">
+                        <property name="label">Add Entity</property>
+                    </object>
+                </child>
+                <child>
+                    <object class="GtkButton" id="remove_entity">
+                        <property name="label">Remove Entity</property>
+                    </object>
+                </child>
             </object>
         </child>
         <child>
@@ -123,6 +133,16 @@
                                         </child>
                                     </object>
                                 </child>
+                            </object>
+                        </child>
+                        <child>
+                            <object class="GtkButton" id="add_component">
+                                <property name="label">Add Component</property>
+                            </object>
+                        </child>
+                        <child>
+                            <object class="GtkButton" id="remove_component">
+                                <property name="label">Remove Component</property>
                             </object>
                         </child>
                     </object>

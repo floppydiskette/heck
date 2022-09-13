@@ -6,7 +6,7 @@ use gfx_maths::{Quaternion, Vec3};
 use glib::subclass::InitializingObject;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use gtk::{glib, Button, CompositeTemplate, PopoverMenuBar, Inhibit, GLArea, gdk, pango};
+use gtk::{glib, Button, CompositeTemplate, PopoverMenuBar, Inhibit, GLArea, gdk, pango, MessageDialog, DialogFlags, MessageType, ButtonsType, ResponseType};
 use gtk::gdk::ffi::GdkGLContext;
 use gtk::gio::Menu;
 use gtk::glib::{Type, Value};
@@ -50,6 +50,14 @@ pub struct Editor {
     pub save: TemplateChild<gtk::Button>,
     #[template_child]
     pub save_as: TemplateChild<gtk::Button>,
+    #[template_child]
+    pub bake_and_export: TemplateChild<gtk::Button>,
+
+    // inspector buttons
+    #[template_child]
+    pub add_component: TemplateChild<gtk::Button>,
+    #[template_child]
+    pub remove_component: TemplateChild<gtk::Button>,
 
     pub sb_treestore: Arc<Mutex<Option<gtk::TreeStore>>>,
     pub it_treestore: Arc<Mutex<Option<gtk::TreeStore>>>,
@@ -175,7 +183,7 @@ pub fn saveas(predetermined_path: Option<String>, window: Arc<Mutex<Option<gtk::
     }
     dialog.connect_response(move |dialog, response| {
         if response == gtk::ResponseType::Accept {
-            let worldmachine = worldmachine.lock().unwrap();
+            let mut worldmachine = worldmachine.lock().unwrap();
             let path = dialog.file().unwrap().path().unwrap();
             worldmachine.save_state_to_file(&path.to_str().unwrap());
         }
@@ -318,7 +326,7 @@ impl Editor {
             let window = window.clone();
             let current_world_path = current_world_path.lock().unwrap();
             if let Some(current_world_path) = current_world_path.as_ref() {
-                let worldmachine = worldmachine.lock().unwrap();
+                let mut worldmachine = worldmachine.lock().unwrap();
                 worldmachine.save_state_to_file(current_world_path);
             } else {
                 saveas(None, window, worldmachine);
@@ -353,6 +361,56 @@ impl Editor {
             } else {
                 open(None, window, worldmachine);
             }
+        });
+
+        // setup the callback for clicking the new button
+        let worldmachine = self.worldmachine.clone();
+        let window = self.window.clone();
+        let current_world_path = self.current_world_path.clone();
+        self.new.connect_clicked(move |_| {
+            let worldmachine = worldmachine.clone();
+            let window = window.clone();
+            let windowinner = window.clone();
+            let windowinner = windowinner.lock().unwrap();
+            let windowinner = windowinner.as_ref().unwrap();
+            let current_world_path = current_world_path.clone();
+            // prompt the user to save the current world
+            let dialog = MessageDialog::new(Some(windowinner), DialogFlags::MODAL, MessageType::Question, ButtonsType::YesNo, "Would you like to save the current world?");
+            dialog.set_title(Some("Save Current World?"));
+            dialog.connect_response(move |dialog, response| {
+                match response {
+                    ResponseType::Yes => {
+                        let worldmachine_clone = worldmachine.clone();
+                        let worldmachine = worldmachine.lock().unwrap().as_ref().unwrap().clone();
+                        let current_world_path = current_world_path.lock().unwrap();
+                        if let Some(current_world_path) = current_world_path.as_ref() {
+                            let worldmachine = worldmachine.clone();
+                            let mut worldmachine = worldmachine.lock().unwrap();
+                            worldmachine.save_state_to_file(current_world_path);
+                        } else {
+                            let window = window.clone();
+                            let windowinner = window.lock().unwrap();
+                            let windowinner = windowinner.as_ref().unwrap();
+                            saveas(None, Arc::new(Mutex::new(Some(windowinner.clone()))), worldmachine);
+                        }
+                        let worldmachine = worldmachine_clone;
+                        let worldmachine = worldmachine.lock().unwrap();
+                        let worldmachine = worldmachine.as_ref().unwrap();
+                        let mut worldmachine = worldmachine.lock().unwrap();
+                        worldmachine.blank_slate();
+                        dialog.destroy();
+                    },
+                    ResponseType::No => {
+                        let worldmachine = worldmachine.lock().unwrap();
+                        let worldmachine = worldmachine.as_ref().unwrap();
+                        let mut worldmachine = worldmachine.lock().unwrap();
+                        worldmachine.blank_slate();
+                        dialog.destroy();
+                    },
+                    _ => {}
+                }
+            });
+            dialog.show();
         });
     }
 

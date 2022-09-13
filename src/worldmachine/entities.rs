@@ -15,7 +15,34 @@ impl Entity {
     }
 
     pub fn add_component(&mut self, component: Component) {
+        // check if we already have a component of this type
+        for existing_component in &self.components {
+            if existing_component.component_type == component.component_type {
+                return;
+            }
+        }
         self.components.push(component);
+    }
+
+    pub fn remove_component(&mut self, component_type: ComponentType) {
+        self.components.retain(|component| component.component_type != component_type);
+    }
+
+    pub fn to_entity_def(&self) -> EntityDef {
+        EntityDef {
+            name: self.name.clone(),
+            components: self.components.clone(),
+        }
+    }
+
+    pub fn from_entity_def(entity_def: &EntityDef) -> Entity {
+        Entity {
+            name: entity_def.name.clone(),
+            uid: ENTITY_ID_MANAGER.lock().unwrap().get_id(),
+            components: entity_def.components.clone(),
+            children: Vec::new(),
+            parent: None,
+        }
     }
 }
 
