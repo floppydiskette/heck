@@ -56,6 +56,7 @@ pub struct WorldMachine {
     pub game_data_path: String,
     pub counter: f32,
     pub editor: Arc<Mutex<Option<Editor>>>,
+    pub entities_wanting_to_load_things: Vec<usize>, // index
     lights_changed: bool,
 }
 
@@ -71,6 +72,7 @@ impl Default for WorldMachine {
             game_data_path: String::from(""),
             counter: 0.0,
             editor: Arc::new(Mutex::new(Option::None)),
+            entities_wanting_to_load_things: Vec::new(),
             lights_changed: true,
         }
     }
@@ -134,6 +136,7 @@ impl WorldMachine {
             }
         }
         self.world.entities.push(entity);
+        self.entities_wanting_to_load_things.push(self.world.entities.len() - 1);
         self.regen_editor();
     }
 
@@ -318,6 +321,7 @@ impl WorldMachine {
 
         debug!("attempt_to_set_component_property: entity_id: {}, component_name: {}, property_name: {}, value: {}", entity_id, component_name, property_name, value);
         let mut entity_index = self.get_entity_index(entity_id).unwrap();
+        self.entities_wanting_to_load_things.push(entity_index);
         let mut entity = self.world.entities[entity_index].clone();
         let components = entity.get_components();
         let mut component = None;
@@ -476,6 +480,59 @@ impl WorldMachine {
 
     pub fn render(&mut self, renderer: &mut H2eckRenderer) {
         self.counter += 1.0;
+        for index in self.entities_wanting_to_load_things.clone() {
+            let entity = &self.world.entities[index];
+            let components = entity.get_components();
+            for component in components {
+                match component.get_type() {
+                    x if x == COMPONENT_TYPE_MESH_RENDERER.clone() => {
+                        let mesh = component.get_parameter("mesh").unwrap();
+                        let mesh = match &mesh.value {
+                            ParameterValue::String(v) => Some(v),
+                            _ => {
+                                error!("render: mesh is not a string");
+                                None
+                            }
+                        };
+                        let mesh = mesh.unwrap();
+                        let texture = component.get_parameter("texture").unwrap();
+                        let texture = match &texture.value {
+                            ParameterValue::String(v) => Some(v),
+                            _ => {
+                                error!("render: texture is not a string");
+                                None
+                            }
+                        };
+                        let texture = texture.unwrap();
+                        let res = renderer.load_mesh_if_not_already_loaded(&mesh);
+                        if res.is_err() {
+                            warn!("render: failed to load mesh: {:?}", res);
+                        }
+                        let res = renderer.load_texture_if_not_already_loaded(texture);
+                        if res.is_err() {
+                            warn!("render: failed to load texture: {:?}", res);
+                        }
+                    }
+                    x if x == COMPONENT_TYPE_TERRAIN.clone() => {
+                        let name = component.get_parameter("name").unwrap();
+                        let name = match &name.value {
+                            ParameterValue::String(v) => Some(v),
+                            _ => {
+                                error!("render: terrain name is not a string");
+                                None
+                            }
+                        };
+                        let name = name.unwrap();
+                        let res = renderer.load_terrain_if_not_already_loaded(name);
+                        if res.is_err() {
+                            warn!("render: failed to load terrain: {:?}", res);
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        self.entities_wanting_to_load_things.clear();
         for entity in self.world.entities.iter_mut() {
             if let Some(mesh_renderer) = entity.get_component(COMPONENT_TYPE_MESH_RENDERER.clone()) {
                 if let Some(mesh) = mesh_renderer.get_parameter("mesh") {
@@ -563,68 +620,52 @@ impl WorldMachine {
                 }
             }
             if let Some(terrain) = entity.get_component(COMPONENT_TYPE_TERRAIN.clone()) {
-                let name = terrain.get_parameter("name");
-                if name.is_none() {
-                    error!("render: terrain has no name");
-                    continue;
-                }
-                let name = match name.unwrap().value {
-                    ParameterValue::String(ref s) => s.clone(),
-                    _ => {
-                        error!("render: terrain name is not a string");
-                        continue;
-                    }
-                };
-                let res = renderer.load_terrain_if_not_already_loaded(&name);
-                if res.is_err() {
-                    warn!("render: failed to load terrain: {:?}", res);
-                    continue;
-                }
-                if renderer.terrains.is_none() {
-                    warn!("render: terrains is none");
-                    continue;
-                }
-                let terrains = renderer.terrains.clone().unwrap();
-                let mut terrain = terrains.get(&*name);
-                if terrain.is_none() {
-                    warn!("render: terrain is none");
-                    continue;
-                }
-                let mut terrain = terrain.unwrap().clone();
-                if let Some(transform) = entity.get_component(COMPONENT_TYPE_TRANSFORM.clone()) {
-                    if let Some(position) = transform.get_parameter("position") {
-                        let position = match position.value {
-                            ParameterValue::Vec3(v) => v,
-                            _ => {
-                                error!("render: transform position is not a vec3");
-                                continue;
-                            }
-                        };
-                        terrain.mesh.position += position;
-                    }
-                    if let Some(rotation) = transform.get_parameter("rotation") {
-                        let rotation = match rotation.value {
-                            ParameterValue::Quaternion(v) => v,
-                            _ => {
-                                error!("render: transform rotation is not a quaternion");
-                                continue;
-                            }
-                        };
-                        // add a bit of rotation to the transform to make things more interesting
-                        terrain.mesh.rotation = rotation;
-                    }
-                    if let Some(scale) = transform.get_parameter("scale") {
-                        let scale = match scale.value {
-                            ParameterValue::Vec3(v) => v,
-                            _ => {
-                                error!("render: transform scale is not a vec3");
-                                continue;
-                            }
-                        };
-                        terrain.mesh.scale += scale;
+                if let Some(name) = terrain.get_parameter("name") {
+                    // get the string value of the mesh
+                    let name = match name.value {
+                        ParameterValue::String(ref s) => s.clone(),
+                        _ => {
+                            error!("render: terrain name is not a string");
+                            continue;
+                        }
+                    };
+                    // if so, render it
+                    let terrains = renderer.terrains.clone().unwrap();
+                    let terrain = terrains.get(&*name);
+                    if let Some(terrain) = terrain {
+                        let mut terrain = terrain.clone();
+                        if let Some(transform) = entity.get_component(COMPONENT_TYPE_TRANSFORM.clone()) {
+                            let position = transform.get_parameter("position").unwrap();
+                            let position = match position.value {
+                                ParameterValue::Vec3(v) => v,
+                                _ => {
+                                    error!("render: transform position is not a vec3");
+                                    continue;
+                                }
+                            };
+                            let rotation = transform.get_parameter("rotation").unwrap();
+                            let rotation = match rotation.value {
+                                ParameterValue::Quaternion(v) => v,
+                                _ => {
+                                    error!("render: transform rotation is not a quaternion");
+                                    continue;
+                                }
+                            };
+                            let scale = transform.get_parameter("scale").unwrap();
+                            let scale = match scale.value {
+                                ParameterValue::Vec3(v) => v,
+                                _ => {
+                                    error!("render: transform scale is not a vec3");
+                                    continue;
+                                }
+                            };
+                            terrain.mesh.position += position;
+                            terrain.mesh.rotation = rotation;
+                            terrain.mesh.scale += scale;
+                        }
+                        terrain.render(renderer);
                     }
                 }
-                terrain.render(renderer);
             }
         }
     }
