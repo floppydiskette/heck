@@ -189,6 +189,13 @@ impl WorldMachine {
         self.regen_editor();
     }
 
+    pub fn rename_entity(&mut self, uid: u64, new_name: &str) {
+        let index = self.get_entity_index(uid).unwrap();
+        let entity = self.world.entities.get_mut(index).unwrap();
+        entity.name = String::from(new_name);
+        self.regen_editor();
+    }
+
     pub fn list_all_component_types(&self) -> Vec<String> {
         let mut component_types = Vec::new();
         let existing_component_type = COMPONENT_TYPES.lock().unwrap().clone();

@@ -14,6 +14,7 @@ use crate::gio;
 use crate::gio::glib::clone;
 use crate::gio::SimpleAction;
 use crate::h2eck_window::component_picker::ComponentPicker;
+use crate::h2eck_window::entity_namer::EntityNamer;
 use crate::h2eck_window::entity_picker::EntityPicker;
 use crate::renderer::H2eckRenderer;
 use crate::worldmachine::{World, WorldMachine};
@@ -66,6 +67,8 @@ pub struct Editor {
     pub add_entity: TemplateChild<gtk::Button>,
     #[template_child]
     pub remove_entity: TemplateChild<gtk::Button>,
+    #[template_child]
+    pub rename_entity: TemplateChild<gtk::Button>,
 
     pub sb_treestore: Arc<Mutex<Option<gtk::TreeStore>>>,
     pub it_treestore: Arc<Mutex<Option<gtk::TreeStore>>>,
@@ -506,6 +509,39 @@ impl Editor {
                 }
             });
             dialog.show();
+        });
+
+        // setup the callback for clicking the rename entity button
+        let worldmachine = self.worldmachine.clone();
+        let current_entity_id = self.current_entity_id.clone();
+        let it_treestore = self.it_treestore.clone();
+        let window = self.window.clone();
+        self.rename_entity.connect_clicked(move |_| {
+            let entity_namer = EntityNamer::new();
+            entity_namer.imp().cancel_button.connect_clicked(clone!(@weak entity_namer => move |_| {
+                entity_namer.destroy();
+            }));
+            #[derive(Clone)]
+            struct EntityNamerData {
+                pub worldmachine: Arc<Mutex<Option<Arc<Mutex<WorldMachine>>>>>,
+                pub current_entity_id: Arc<Mutex<Option<u64>>>,
+                pub entity_namer: EntityNamer,
+            }
+            let data = EntityNamerData {
+                worldmachine: worldmachine.clone(),
+                current_entity_id: current_entity_id.clone(),
+                entity_namer: entity_namer.clone(),
+            };
+            entity_namer.imp().ok_button.connect_clicked(move |_| {
+                let data = data.clone();
+                let worldmachine = data.worldmachine.lock().unwrap().as_ref().unwrap().clone();
+                let mut worldmachine = worldmachine.lock().unwrap();
+                let current_entity_id = data.current_entity_id.lock().unwrap().unwrap();
+                let name = data.entity_namer.imp().name_entry.text().to_string();
+                worldmachine.rename_entity(current_entity_id, name.as_str());
+                data.entity_namer.destroy();
+            });
+            entity_namer.show();
         });
 
         // setup the callback for clicking the add component button
