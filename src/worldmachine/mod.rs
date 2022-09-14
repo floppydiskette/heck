@@ -11,7 +11,7 @@ use crate::h2eck_window::editor::Editor;
 use crate::renderer::camera::Camera;
 use crate::renderer::H2eckRenderer;
 use crate::renderer::raycasting::Ray;
-use crate::worldmachine::components::{COMPONENT_TYPE_LIGHT, COMPONENT_TYPE_MESH_RENDERER, COMPONENT_TYPE_TRANSFORM, Light, MeshRenderer};
+use crate::worldmachine::components::{COMPONENT_TYPE_LIGHT, COMPONENT_TYPE_MESH_RENDERER, COMPONENT_TYPE_TERRAIN, COMPONENT_TYPE_TRANSFORM, Light, MeshRenderer, Terrain, Transform};
 use crate::worldmachine::ecs::*;
 use crate::worldmachine::entities::new_ht2_entity;
 
@@ -175,6 +175,39 @@ impl WorldMachine {
         let entity = self.world.entities.get_mut(index).unwrap();
         entity.remove_component(component_type);
         self.regen_editor();
+    }
+
+    pub fn list_all_component_types(&self) -> Vec<String> {
+        let mut component_types = Vec::new();
+        let existing_component_type = COMPONENT_TYPES.lock().unwrap().clone();
+        for (name, _) in existing_component_type.iter() {
+            component_types.push(name.clone());
+        }
+        component_types
+    }
+
+    pub fn new_component_from_name(&self, name: &str) -> Option<Component> {
+        let existing_component_type = COMPONENT_TYPES.lock().unwrap().clone();
+        let component_type = existing_component_type.get(name);
+        component_type?;
+        let component_type = component_type.unwrap();
+        match component_type.clone() {
+            x if x == COMPONENT_TYPE_TRANSFORM.clone() => {
+                Some(Transform::default())
+            },
+            x if x == COMPONENT_TYPE_MESH_RENDERER.clone() => {
+                Some(MeshRenderer::default())
+            },
+            x if x == COMPONENT_TYPE_LIGHT.clone() => {
+                Some(Light::default())
+            },
+            x if x == COMPONENT_TYPE_TERRAIN.clone() => {
+                Some(Terrain::default())
+            },
+            _ => {
+                None
+            }
+        }
     }
 
     pub fn save_state_to_file(&mut self, file_path: &str) {
