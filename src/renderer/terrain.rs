@@ -21,7 +21,7 @@ impl Terrain {
         let shader = renderer.shaders.as_mut().unwrap().get("terrain").ok_or("Could not find shader")?.clone();
         // load mesh
         let mut mesh = Mesh::new(format!("{}/terrains/{}.glb", renderer.data_dir, name).as_str(), "terrain", &shader, renderer).map_err(|e| format!("failed to load terrain: {:?}", e))?;
-        mesh.scale = Vec3::new(20.0, 20.0, 20.0);
+        mesh.scale = Vec3::new(5.0, 5.0, 5.0);
         // load textures
         let mixmap = Texture::new_from_name(
             format!("{}/terrains/{}_mixmap", renderer.data_dir, name),
@@ -90,7 +90,7 @@ impl Terrain {
             let camera_view = renderer.camera.as_mut().unwrap().get_view();
 
             // calculate the model matrix
-            let model_matrix = calculate_model_matrix(Vec3::new(0.0, 0.0, 0.0), Quaternion::identity(), Vec3::new(1.0, 1.0, 1.0));
+            let model_matrix = calculate_model_matrix(self.mesh.position, self.mesh.rotation, self.mesh.scale);
 
             // calculate the mvp matrix
             let mvp = camera_projection * camera_view * model_matrix;

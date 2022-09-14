@@ -27,6 +27,12 @@ pub struct World {
     eid_manager: u64,
 }
 
+#[derive(Deserialize, Serialize)]
+pub struct WorldDef {
+    pub name: String,
+    pub world: World,
+}
+
 impl Clone for World {
     fn clone(&self) -> Self {
         let mut entities = Vec::new();
@@ -233,6 +239,7 @@ impl WorldMachine {
         {
             let mut eid_manager = ENTITY_ID_MANAGER.lock().unwrap();
             self.world.eid_manager = eid_manager.borrow().id;
+            self.editor.lock().unwrap().as_mut().unwrap().imp().current_world_path.lock().unwrap().as_mut().replace(&mut String::from(file_path));
         }
         let serialized = serde_yaml::to_string(&self.world).unwrap();
         std::fs::write(file_path, serialized).expect("unable to write file");
@@ -246,9 +253,39 @@ impl WorldMachine {
         {
             let mut eid_manager = ENTITY_ID_MANAGER.lock().unwrap();
             eid_manager.borrow_mut().id = self.world.eid_manager;
+            self.editor.lock().unwrap().as_mut().unwrap().imp().current_world_path.lock().unwrap().as_mut().replace(&mut String::from(file_path));
         }
 
         self.regen_editor();
+    }
+
+    pub fn compile_map(&mut self, name: &str) {
+        // create a directory for the map (if it doesn't exist)
+        let map_dir = format!("{}/maps/{}", self.game_data_path, name);
+        let res = std::fs::create_dir_all(map_dir.clone());
+        if res.is_err() {
+            error!("failed to create map directory: {}", res.err().unwrap());
+            return;
+        }
+
+        let worlddef = WorldDef {
+            name: String::from(name),
+            world: self.world.clone(),
+        };
+
+        let mut serialized = Vec::new();
+        let res = worlddef.serialize(&mut rmp_serde::Serializer::new(&mut serialized));
+        if res.is_err() {
+            error!("failed to serialize worlddef: {}", res.err().unwrap());
+            return;
+        }
+        // write the worlddef to a file
+        let res = std::fs::write(format!("{}/worlddef", map_dir), serialized);
+        if res.is_err() {
+            error!("failed to write worlddef: {}", res.err().unwrap());
+            return;
+        }
+        info!("wrote worlddef to file");
     }
 
     #[allow(clippy::borrowed_box)]
@@ -543,6 +580,51 @@ impl WorldMachine {
                     warn!("render: failed to load terrain: {:?}", res);
                     continue;
                 }
+                if renderer.terrains.is_none() {
+                    warn!("render: terrains is none");
+                    continue;
+                }
+                let terrains = renderer.terrains.clone().unwrap();
+                let mut terrain = terrains.get(&*name);
+                if terrain.is_none() {
+                    warn!("render: terrain is none");
+                    continue;
+                }
+                let mut terrain = terrain.unwrap().clone();
+                if let Some(transform) = entity.get_component(COMPONENT_TYPE_TRANSFORM.clone()) {
+                    if let Some(position) = transform.get_parameter("position") {
+                        let position = match position.value {
+                            ParameterValue::Vec3(v) => v,
+                            _ => {
+                                error!("render: transform position is not a vec3");
+                                continue;
+                            }
+                        };
+                        terrain.mesh.position += position;
+                    }
+                    if let Some(rotation) = transform.get_parameter("rotation") {
+                        let rotation = match rotation.value {
+                            ParameterValue::Quaternion(v) => v,
+                            _ => {
+                                error!("render: transform rotation is not a quaternion");
+                                continue;
+                            }
+                        };
+                        // add a bit of rotation to the transform to make things more interesting
+                        terrain.mesh.rotation = rotation;
+                    }
+                    if let Some(scale) = transform.get_parameter("scale") {
+                        let scale = match scale.value {
+                            ParameterValue::Vec3(v) => v,
+                            _ => {
+                                error!("render: transform scale is not a vec3");
+                                continue;
+                            }
+                        };
+                        terrain.mesh.scale += scale;
+                    }
+                }
+                terrain.render(renderer);
             }
         }
     }

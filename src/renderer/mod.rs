@@ -99,7 +99,7 @@ impl Default for H2eckRenderer {
 impl H2eckRenderer {
     pub fn initialise(&mut self, width: u32, height: u32) {
 
-        let camera = Camera::new(Vec2::new(width as f32, height as f32), 90.0, 0.1, 100.0);
+        let camera = Camera::new(Vec2::new(width as f32, height as f32), 90.0, 0.1, 10000.0);
         self.camera = Option::Some(camera);
 
         // todo! get this from settings
@@ -328,12 +328,13 @@ impl H2eckRenderer {
             glClearColor(0.1, 0.0, 0.1, 1.0);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-            if let Some(terrains) = self.terrains.clone() {
+            /*if let Some(terrains) = self.terrains.clone() {
                 // render the terrains
                 for terrain in terrains {
                     terrain.1.render(self);
                 }
             }
+             */
 
             worldmachine.render(self);
         }

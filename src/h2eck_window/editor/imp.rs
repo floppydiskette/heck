@@ -1,5 +1,6 @@
 use std::any::Any;
 use std::ops::Deref;
+use std::path::Path;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use gfx_maths::{Quaternion, Vec3};
@@ -615,6 +616,38 @@ impl Editor {
                     });
                     dialog.show();
                 }
+            }
+        });
+
+        // bake & export button
+        let worldmachine = self.worldmachine.clone();
+        let current_world_path = self.current_world_path.clone();
+        let window = self.window.clone();
+        self.bake_and_export.connect_clicked(move |_| {
+            let worldmachine = worldmachine.lock().unwrap().as_ref().unwrap().clone();
+            let current_world_path = current_world_path.lock().unwrap().clone();
+            let current_world_path = current_world_path.as_ref();
+            if current_world_path.is_none() {
+                warn!("No world path set, cannot bake and export");
+                saveas(None, window.clone(), worldmachine.clone());
+                let warning_dialog = MessageDialog::new(Some(window.lock().unwrap().as_ref().unwrap()), DialogFlags::MODAL, MessageType::Warning, ButtonsType::Ok, "no world path set, please save and try again");
+                warning_dialog.set_title(Some("No World Path Set"));
+                warning_dialog.connect_response(|dialog, _| {
+                    dialog.destroy();
+                });
+                warning_dialog.show();
+                return;
+            }
+            let current_world_path = current_world_path.unwrap();
+            // get the last part of the path and remove extension if it exists
+            let world_name = Path::new(current_world_path).file_stem();
+            if let Some(world_name) = world_name {
+                let world_name = world_name.to_str().unwrap();
+                let world_name = world_name.to_string();
+                let mut worldmachine = worldmachine.lock().unwrap();
+                worldmachine.compile_map(world_name.as_str());
+            } else {
+                error!("could not get world name from path: {}", current_world_path);
             }
         });
     }
