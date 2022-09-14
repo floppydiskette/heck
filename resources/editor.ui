@@ -52,6 +52,11 @@
                         <property name="label">Rename Entity</property>
                     </object>
                 </child>
+                <child>
+                    <object class="GtkButton" id="export_entity">
+                        <property name="label">Export Entity</property>
+                    </object>
+                </child>
             </object>
         </child>
         <child>

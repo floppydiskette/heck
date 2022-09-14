@@ -69,6 +69,8 @@ pub struct Editor {
     pub remove_entity: TemplateChild<gtk::Button>,
     #[template_child]
     pub rename_entity: TemplateChild<gtk::Button>,
+    #[template_child]
+    pub export_entity: TemplateChild<gtk::Button>,
 
     pub sb_treestore: Arc<Mutex<Option<gtk::TreeStore>>>,
     pub it_treestore: Arc<Mutex<Option<gtk::TreeStore>>>,
@@ -542,6 +544,19 @@ impl Editor {
                 data.entity_namer.destroy();
             });
             entity_namer.show();
+        });
+
+        // setup the callback for clicking the export entity button
+        let worldmachine = self.worldmachine.clone();
+        let current_entity_id = self.current_entity_id.clone();
+        let window = self.window.clone();
+        self.export_entity.connect_clicked(move |_| {
+            let worldmachine = worldmachine.lock().unwrap();
+            let worldmachine = worldmachine.as_ref().unwrap();
+            let mut worldmachine = worldmachine.lock().unwrap();
+            let current_entity_id = current_entity_id.lock().unwrap();
+            let current_entity_id = current_entity_id.as_ref().unwrap();
+            worldmachine.save_entity_def(*current_entity_id);
         });
 
         // setup the callback for clicking the add component button

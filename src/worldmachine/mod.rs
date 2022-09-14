@@ -525,6 +525,25 @@ impl WorldMachine {
                     }
                 }
             }
+            if let Some(terrain) = entity.get_component(COMPONENT_TYPE_TERRAIN.clone()) {
+                let name = terrain.get_parameter("name");
+                if name.is_none() {
+                    error!("render: terrain has no name");
+                    continue;
+                }
+                let name = match name.unwrap().value {
+                    ParameterValue::String(ref s) => s.clone(),
+                    _ => {
+                        error!("render: terrain name is not a string");
+                        continue;
+                    }
+                };
+                let res = renderer.load_terrain_if_not_already_loaded(&name);
+                if res.is_err() {
+                    warn!("render: failed to load terrain: {:?}", res);
+                    continue;
+                }
+            }
         }
     }
 }
