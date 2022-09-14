@@ -74,6 +74,7 @@ impl WorldMachine {
     pub fn initialise(&mut self, editor: Arc<Mutex<Option<Editor>>>) {
         // todo! get this from settings
         self.game_data_path = String::from("../huskyTech2/base");
+        components::register_component_types();
 
         self.editor = editor;
         self.blank_slate();
@@ -164,7 +165,12 @@ impl WorldMachine {
     }
 
     pub fn give_component_to_entity(&mut self, uid: u64, component: Component) {
-        let index = self.get_entity_index(uid).unwrap();
+        let index = self.get_entity_index(uid);
+        if index.is_none() {
+            error!("failed to give component to entity, entity {} not found", uid);
+            return;
+        }
+        let index = index.unwrap();
         let entity = self.world.entities.get_mut(index).unwrap();
         entity.add_component(component);
         self.regen_editor();

@@ -6,17 +6,18 @@ use gfx_maths::{Quaternion, Vec3};
 use glib::subclass::InitializingObject;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use gtk::{glib, Button, CompositeTemplate, PopoverMenuBar, Inhibit, GLArea, gdk, pango, MessageDialog, DialogFlags, MessageType, ButtonsType, ResponseType};
+use gtk::{glib, Button, CompositeTemplate, PopoverMenuBar, Inhibit, GLArea, gdk, pango, MessageDialog, DialogFlags, MessageType, ButtonsType, ResponseType, TreePath};
 use gtk::gdk::ffi::GdkGLContext;
 use gtk::gio::Menu;
 use gtk::glib::{Type, Value};
 use crate::gio;
 use crate::gio::glib::clone;
 use crate::gio::SimpleAction;
+use crate::h2eck_window::component_picker::ComponentPicker;
 use crate::h2eck_window::entity_picker::EntityPicker;
 use crate::renderer::H2eckRenderer;
 use crate::worldmachine::{World, WorldMachine};
-use crate::worldmachine::ecs::{Component, ParameterValue};
+use crate::worldmachine::ecs::{Component, COMPONENT_TYPES, ParameterValue};
 
 
 #[derive(CompositeTemplate, Default)]
@@ -71,6 +72,7 @@ pub struct Editor {
     pub worldmachine: Arc<Mutex<Option<Arc<Mutex<WorldMachine>>>>>,
     pub window: Arc<Mutex<Option<gtk::ApplicationWindow>>>,
     pub current_entity_id: Arc<Mutex<Option<u64>>>,
+    pub current_component_name: Arc<Mutex<Option<String>>>,
     pub current_world_path: Arc<Mutex<Option<String>>>,
 }
 
@@ -181,6 +183,9 @@ pub fn get_component_from_sb_treepath(sb_treestore: Arc<Mutex<Option<gtk::TreeSt
         if let Ok(id) = saved_entity_id {
             let mut current_entity_id = entity_id_to_set.lock().unwrap();
             *current_entity_id = id.parse::<u64>().ok();
+        } else {
+            let mut current_entity_id = entity_id_to_set.lock().unwrap();
+            *current_entity_id = Option::None;
         }
     }
     let entity_id = entity_id?;
@@ -262,6 +267,7 @@ impl Editor {
             worldmachine: Arc<Mutex<Option<Arc<Mutex<WorldMachine>>>>>,
             inspector_tree: gtk::TreeView,
             entity_id_to_set: Arc<Mutex<Option<u64>>>,
+            component_name_to_set: Arc<Mutex<Option<String>>>,
         }
         let clicked_data = ClickedData {
             sb_treestore: self.sb_treestore.clone(),
@@ -269,6 +275,7 @@ impl Editor {
             worldmachine: self.worldmachine.clone(),
             inspector_tree: self.inspector_tree.clone(),
             entity_id_to_set: self.current_entity_id.clone(),
+            component_name_to_set: self.current_component_name.clone(),
         };
         self.scene_browser.connect_row_activated(clone!(@strong clicked_data as cd => move |_, path, _| {
             let sb_treestore = cd.sb_treestore.clone();
@@ -276,7 +283,9 @@ impl Editor {
             let worldmachine = cd.worldmachine.clone();
             let component = get_component_from_sb_treepath(sb_treestore, worldmachine, path, cd.entity_id_to_set.clone());
             if let Some(component) = component {
+                let component_name = component.name.clone();
                 regen_inspector_from_component(it_treestore, &mut Box::new(component));
+                cd.component_name_to_set.lock().unwrap().replace(component_name.to_string());
             } else {
                 inspector_blank_slate(it_treestore);
             }
@@ -498,6 +507,65 @@ impl Editor {
             });
             dialog.show();
         });
+
+        // setup the callback for clicking the add component button
+        let worldmachine = self.worldmachine.clone();
+        let current_entity_id = self.current_entity_id.clone();
+        let it_treestore = self.it_treestore.clone();
+        let window = self.window.clone();
+        self.add_component.connect_clicked(move |_| {
+            if let Some(id) = current_entity_id.lock().unwrap().clone() {
+                let worldmachine = worldmachine.lock().unwrap().as_ref().unwrap().clone();
+                let window = window.clone();
+                let window = window.lock().unwrap();
+                let window = window.as_ref().unwrap();
+                let it_treestore = it_treestore.clone();
+                let mut component_picker = ComponentPicker::new();
+                // set worldmachine
+                *component_picker.imp().worldmachine.clone().lock().unwrap() = Some(worldmachine);
+                *component_picker.imp().selected_entity_id.clone().lock().unwrap() = id;
+                component_picker.imp().populate_listbox();
+                component_picker.show();
+            }
+        });
+
+        // setup the callback for clicking the remove component button
+        let worldmachine = self.worldmachine.clone();
+        let current_entity_id = self.current_entity_id.clone();
+        let current_component_name = self.current_component_name.clone();
+        let it_treestore = self.it_treestore.clone();
+        let window = self.window.clone();
+        self.remove_component.connect_clicked(move |_| {
+            if let Some(id) = current_entity_id.lock().unwrap().clone() {
+                if let Some(cname) = current_component_name.lock().unwrap().clone() {
+                    let worldmachine = worldmachine.lock().unwrap().as_ref().unwrap().clone();
+                    let window = window.clone();
+                    let window = window.lock().unwrap();
+                    let window = window.as_ref().unwrap();
+                    let it_treestore = it_treestore.clone();
+                    let current_entity_id = current_entity_id.clone();
+                    let dialog = MessageDialog::new(Some(window), DialogFlags::MODAL, MessageType::Question, ButtonsType::YesNo, "Are you sure you want to delete this component?");
+                    dialog.set_title(Some("Delete Component?"));
+                    dialog.connect_response(move |dialog, response| {
+                        match response {
+                            ResponseType::Yes => {
+                                let mut worldmachine = worldmachine.lock().unwrap();
+                                let cname = cname.clone();
+                                let component_type = COMPONENT_TYPES.lock().unwrap().get(&cname).unwrap().clone();
+                                worldmachine.remove_component_from_entity(id, component_type);
+                                inspector_blank_slate(it_treestore.clone());
+                                dialog.destroy();
+                            }
+                            ResponseType::No => {
+                                dialog.destroy();
+                            }
+                            _ => {}
+                        }
+                    });
+                    dialog.show();
+                }
+            }
+        });
     }
 
     pub fn regen_model_from_world(&self, wm: &mut World) {
@@ -514,6 +582,8 @@ impl Editor {
                 model.set(&component_node, &[(0, &Value::from(component.get_name()))]);
             }
         }
+
+        self.scene_browser.expand_all();
     }
 }
 

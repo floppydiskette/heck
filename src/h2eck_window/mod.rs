@@ -2,6 +2,7 @@ mod imp;
 pub mod about_window;
 pub mod editor;
 pub mod entity_picker;
+pub mod component_picker;
 
 use glib::Object;
 use gtk::{gio, glib, prelude::*, Application};

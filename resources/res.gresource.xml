@@ -10,6 +10,9 @@
         <file compressed="true" preprocess="xml-stripblanks">entity_picker.ui</file>
     </gresource>
     <gresource prefix="/com/realmicrosoft/h2eck">
+        <file compressed="true" preprocess="xml-stripblanks">component_picker.ui</file>
+    </gresource>
+    <gresource prefix="/com/realmicrosoft/h2eck">
         <file compressed="true" preprocess="xml-stripblanks">about.ui</file>
     </gresource>
 </gresources>

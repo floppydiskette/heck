@@ -130,6 +130,7 @@ impl ComponentType {
     }
 
     pub fn create_if_not_exists(name: &str) -> Self {
+        debug!("Creating component type {}", name);
         let mut hashmap = COMPONENT_TYPES.lock().unwrap();
         hashmap.entry(name.to_string()).or_insert_with(|| {
             let id = COMPONENT_ID_MANAGER.lock().unwrap().get_id();
