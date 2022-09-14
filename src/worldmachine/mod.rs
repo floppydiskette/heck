@@ -258,7 +258,10 @@ impl WorldMachine {
             eid_manager.borrow_mut().id = self.world.eid_manager;
             self.editor.lock().unwrap().as_mut().unwrap().imp().current_world_path.lock().unwrap().as_mut().replace(&mut String::from(file_path));
         }
-
+        self.entities_wanting_to_load_things.clear();
+        for i in 0..self.world.entities.len() {
+            self.entities_wanting_to_load_things.push(i);
+        }
         self.regen_editor();
     }
 
