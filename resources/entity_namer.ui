@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<interface>
+    <template class="h2eckEntityNamer" parent="GtkApplicationWindow">
+        <property name="title">entity namer</property>
+        <property name="default-width">400</property>
+        <property name="default-height">70</property>
+        <child>
+            <object class="GtkBox" id="main_box">
+                <property name="orientation">vertical</property>
+                <property name="spacing">6</property>
+                <property name="valign">fill</property>
+                <property name="halign">fill</property>
+                <property name="vexpand">true</property>
+                <property name="hexpand">true</property>
+                <child>
+                    <object class="GtkEntry" id="name_entry">
+                        <property name="placeholder-text">Name</property>
+                    </object>
+                </child>
+                <child>
+                    <object class="GtkBox" id="button_box">
+                        <property name="orientation">horizontal</property>
+                        <property name="spacing">6</property>
+                        <child>
+                            <object class="GtkButton" id="cancel_button">
+                                <property name="label">Cancel</property>
+                            </object>
+                        </child>
+                        <child>
+                            <object class="GtkButton" id="ok_button">
+                                <property name="label">OK</property>
+                            </object>
+                        </child>
+                    </object>
+                </child>
+            </object>
+        </child>
+    </template>
+</interface>

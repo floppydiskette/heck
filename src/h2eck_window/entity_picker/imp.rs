@@ -7,6 +7,7 @@ use gtk::AccessibleRole::Label;
 use gtk::gio::Menu;
 use crate::gio::glib::clone;
 use crate::gio::SimpleAction;
+use crate::h2eck_window::entity_namer::EntityNamer;
 use crate::h2eck_window::entity_picker;
 use crate::renderer::H2eckRenderer;
 use crate::worldmachine::WorldMachine;
@@ -65,6 +66,14 @@ pub fn add_entity(name: &str, worldmachine: Arc<Mutex<Option<Arc<Mutex<WorldMach
     worldmachine.load_entity_def(name, renderer.camera.clone());
 }
 
+pub fn create_entity(name: &str, worldmachine: Arc<Mutex<Option<Arc<Mutex<WorldMachine>>>>>) {
+    let worldmachine = worldmachine.lock().unwrap();
+    let worldmachine = worldmachine.as_ref().unwrap();
+    let mut worldmachine = worldmachine.lock().unwrap();
+
+    worldmachine.add_blank_entity(name);
+}
+
 impl EntityPicker {
     pub fn setup(&self, obj: &<EntityPicker as ObjectSubclass>::Type) {
         // cancel button
@@ -73,6 +82,7 @@ impl EntityPicker {
         }));
 
         // ok button
+        #[derive(Clone)]
         struct EntityPickerOkButtonData {
             list_box: ListBox,
             obj: entity_picker::EntityPicker,
@@ -97,6 +107,36 @@ impl EntityPicker {
                 add_entity(&selected_row, data.worldmachine.clone(), data.renderer.clone());
             }
             data.obj.close();
+        });
+
+        // new button
+        let data = EntityPickerOkButtonData {
+            list_box: self.list_box.clone(),
+            obj: obj.clone(),
+            worldmachine: self.worldmachine.clone(),
+            renderer: self.renderer.clone(),
+        };
+        self.new_button.connect_clicked(move |_| {
+            let entity_namer = EntityNamer::new();
+            entity_namer.imp().cancel_button.connect_clicked(clone!(@weak entity_namer => move |_| {
+                entity_namer.close();
+            }));
+            struct EntityNamerOkData {
+                pub prev_data: EntityPickerOkButtonData,
+                pub entity_namer: EntityNamer,
+            }
+            let data = EntityNamerOkData {
+                prev_data: data.clone(),
+                entity_namer: entity_namer.clone(),
+            };
+            entity_namer.imp().ok_button.connect_clicked(move |_| {
+                let entity_name = data.entity_namer.imp().name_entry.text();
+                create_entity(&entity_name, data.prev_data.worldmachine.clone());
+                data.prev_data.obj.close();
+                data.entity_namer.close();
+                data.prev_data.obj.close();
+            });
+            entity_namer.show();
         });
     }
 

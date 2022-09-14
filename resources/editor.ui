@@ -47,6 +47,11 @@
                         <property name="label">Remove Entity</property>
                     </object>
                 </child>
+                <child>
+                    <object class="GtkButton" id="rename_entity">
+                        <property name="label">Rename Entity</property>
+                    </object>
+                </child>
             </object>
         </child>
         <child>

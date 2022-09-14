@@ -131,6 +131,12 @@ impl WorldMachine {
         self.regen_editor();
     }
 
+    pub fn add_blank_entity(&mut self, name: &str) {
+        let entity = Entity::new(name);
+        self.world.entities.push(entity);
+        self.regen_editor();
+    }
+
     pub fn save_entity_def(&mut self, uid: u64) {
         debug!("{}, {}", uid, self.game_data_path);
         let entity = self.get_entity(uid).unwrap();
