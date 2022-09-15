@@ -1,8 +1,66 @@
-{name: ht2
-id: 1
-components:
-  - transform:scale[1,20,1],rotation[0,0,0,1],position[0,5,4]
-  - meshrenderer:shader[basic],mesh[ht2],texture[default]
-  - light:intensity[1],color[1,1,1],position[0,1,0]
-children:
-}
+entities:
+- name: ht2
+  uid: 1
+  components:
+  - name: Transform
+    parameters:
+      position:
+        name: position
+        value: !Vec3
+          x: 0.0
+          y: 0.0
+          z: 2.0
+      rotation:
+        name: rotation
+        value: !Quaternion
+          x: 0.0
+          y: 0.0
+          z: 0.0
+          w: 1.0
+      scale:
+        name: scale
+        value: !Vec3
+          x: 1.0
+          y: 1.0
+          z: 1.0
+    component_type:
+      id: 1
+      name: Transform
+  - name: MeshRenderer
+    parameters:
+      mesh:
+        name: mesh
+        value: !String ht2
+      shader:
+        name: shader
+        value: !String basic
+      texture:
+        name: texture
+        value: !String default
+    component_type:
+      id: 2
+      name: MeshRenderer
+  - name: Light
+    parameters:
+      colour:
+        name: colour
+        value: !Vec3
+          x: 1.0
+          y: 1.0
+          z: 1.0
+      intensity:
+        name: intensity
+        value: !Float 1.0
+      position:
+        name: position
+        value: !Vec3
+          x: 0.0
+          y: 1.0
+          z: 0.0
+    component_type:
+      id: 4
+      name: Light
+  children: []
+  parent: null
+systems: []
+eid_manager: 1

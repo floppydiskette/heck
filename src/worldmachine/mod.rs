@@ -242,7 +242,7 @@ impl WorldMachine {
         {
             let mut eid_manager = ENTITY_ID_MANAGER.lock().unwrap();
             self.world.eid_manager = eid_manager.borrow().id;
-            self.editor.lock().unwrap().as_mut().unwrap().imp().current_world_path.lock().unwrap().as_mut().replace(&mut String::from(file_path));
+            self.editor.lock().unwrap().as_mut().unwrap().imp().current_world_path.lock().unwrap().replace(String::from(file_path));
         }
         let serialized = serde_yaml::to_string(&self.world).unwrap();
         std::fs::write(file_path, serialized).expect("unable to write file");
@@ -256,7 +256,7 @@ impl WorldMachine {
         {
             let mut eid_manager = ENTITY_ID_MANAGER.lock().unwrap();
             eid_manager.borrow_mut().id = self.world.eid_manager;
-            self.editor.lock().unwrap().as_mut().unwrap().imp().current_world_path.lock().unwrap().as_mut().replace(&mut String::from(file_path));
+            self.editor.lock().unwrap().as_mut().unwrap().imp().current_world_path.lock().unwrap().replace(String::from(file_path));
         }
         self.entities_wanting_to_load_things.clear();
         for i in 0..self.world.entities.len() {
