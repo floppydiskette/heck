@@ -367,7 +367,10 @@ impl Editor {
         self.save.connect_clicked(move |_| {
             let worldmachine = worldmachine.lock().unwrap().as_ref().unwrap().clone();
             let window = window.clone();
-            let current_world_path = current_world_path.lock().unwrap();
+            let current_world_path =
+                {
+                    current_world_path.lock().unwrap().clone()
+                };
             if let Some(current_world_path) = current_world_path.as_ref() {
                 let mut worldmachine = worldmachine.lock().unwrap();
                 worldmachine.save_state_to_file(current_world_path);
@@ -382,7 +385,9 @@ impl Editor {
         self.save_as.connect_clicked(move |_| {
             let worldmachine = worldmachine.lock().unwrap().as_ref().unwrap().clone();
             let window = window.clone();
-            let current_world_path = current_world_path.lock().unwrap();
+            let current_world_path = {
+                current_world_path.lock().unwrap().clone()
+            };
             if let Some(current_world_path) = current_world_path.as_ref() {
                 saveas(Some(current_world_path.clone()), window, worldmachine);
             } else {

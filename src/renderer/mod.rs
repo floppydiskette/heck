@@ -194,6 +194,9 @@ impl H2eckRenderer {
             self.framebuffers.depthbuffer = depthbuffer as usize;
             self.framebuffers.depthbuffer_texture = depthtexture as usize;
 
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
 
             glViewport(0, 0, width as i32, height as i32);
             // make top left corner as origin
@@ -211,6 +214,7 @@ impl H2eckRenderer {
         Shader::load_shader(self, "postbuffer").expect("failed to load shader (postbuffer)");
         Shader::load_shader(self, "basic").expect("failed to load shader");
         Shader::load_shader(self, "terrain").expect("failed to load shader (terrain)");
+        Shader::load_shader(self, "viz").expect("failed to load shader (viz)");
         Texture::load_texture("default", "default/default", self, false).expect("failed to load default texture");
         Texture::load_texture("grass1", format!("{}/textures/{}_", self.data_dir,"terrain/grass1").as_str(), self, true).expect("failed to load grass1 texture");
         Texture::load_texture("dirt1", format!("{}/textures/{}_", self.data_dir,"terrain/dirt1").as_str(), self, true).expect("failed to load dirt1 texture");
@@ -219,6 +223,7 @@ impl H2eckRenderer {
 
         // some default models that we should load
         self.load_mesh_if_not_already_loaded("ht2").expect("failed to load ht2 model");
+        self.load_mesh_if_not_already_loaded("boxviz").expect("failed to load boxviz model");
     }
 
     pub fn load_texture_if_not_already_loaded(&mut self, name: &str) -> Result<(), String> {

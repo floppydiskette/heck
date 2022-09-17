@@ -1,3 +1,5 @@
+#![allow(clippy::new_ret_no_self)]
+
 use std::collections::BTreeMap;
 use gfx_maths::*;
 use crate::renderer::H2eckRenderer;
@@ -10,6 +12,7 @@ lazy_static! {
     pub static ref COMPONENT_TYPE_MESH_RENDERER: ComponentType = ComponentType::create_if_not_exists("MeshRenderer");
     pub static ref COMPONENT_TYPE_TERRAIN: ComponentType = ComponentType::create_if_not_exists("Terrain");
     pub static ref COMPONENT_TYPE_LIGHT: ComponentType = ComponentType::create_if_not_exists("Light");
+    pub static ref COMPONENT_TYPE_BOX_COLLIDER: ComponentType = ComponentType::create_if_not_exists("BoxCollider");
 }
 
 pub fn register_component_types() {
@@ -18,6 +21,7 @@ pub fn register_component_types() {
     let _ = COMPONENT_TYPE_MESH_RENDERER.clone();
     let _ = COMPONENT_TYPE_TERRAIN.clone();
     let _ = COMPONENT_TYPE_LIGHT.clone();
+    let _ = COMPONENT_TYPE_BOX_COLLIDER.clone();
 }
 
 pub struct Transform {}
@@ -95,5 +99,25 @@ impl Terrain {
     }
     pub fn default() -> Component {
         Self::new("default")
+    }
+}
+
+pub struct BoxCollider {}
+
+impl BoxCollider {
+    pub fn new(position: Vec3, size: Vec3) -> Component {
+        let mut parameters = BTreeMap::new();
+        parameters.insert("position".to_string(), Parameter::new("position", ParameterValue::Vec3(position)));
+        parameters.insert("size".to_string(), Parameter::new("size", ParameterValue::Vec3(size)));
+        parameters.insert("visualise".to_string(), Parameter::new("visualise", ParameterValue::Bool(true)));
+
+        Component {
+            name: "BoxCollider".to_string(),
+            parameters,
+            component_type: COMPONENT_TYPE_BOX_COLLIDER.clone(),
+        }
+    }
+    pub fn default() -> Component {
+        Self::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 1.0, 1.0))
     }
 }
