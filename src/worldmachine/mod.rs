@@ -368,9 +368,9 @@ impl WorldMachine {
                 let mut z = 0.0;
                 if value.contains(",") {
                     let mut split = value.split(",");
-                    x = split.next().unwrap().parse::<f32>().unwrap_or(cv.x);
-                    y = split.next().unwrap().parse::<f32>().unwrap_or(cv.y);
-                    z = split.next().unwrap().parse::<f32>().unwrap_or(cv.z);
+                    x = split.next().unwrap_or("a").parse::<f32>().unwrap_or(cv.x);
+                    y = split.next().unwrap_or("a").parse::<f32>().unwrap_or(cv.y);
+                    z = split.next().unwrap_or("a").parse::<f32>().unwrap_or(cv.z);
                 } else {
                     x = value.parse::<f32>().unwrap_or(cv.x);
                     y = value.parse::<f32>().unwrap_or(cv.y);
@@ -386,10 +386,10 @@ impl WorldMachine {
                 let mut w = 0.0;
                 if value.contains(",") {
                     let mut split = value.split(",");
-                    x = split.next().unwrap().parse::<f32>().unwrap_or(cv.x);
-                    y = split.next().unwrap().parse::<f32>().unwrap_or(cv.y);
-                    z = split.next().unwrap().parse::<f32>().unwrap_or(cv.z);
-                    w = split.next().unwrap().parse::<f32>().unwrap_or(cv.w);
+                    x = split.next().unwrap_or("a").parse::<f32>().unwrap_or(cv.x);
+                    y = split.next().unwrap_or("a").parse::<f32>().unwrap_or(cv.y);
+                    z = split.next().unwrap_or("a").parse::<f32>().unwrap_or(cv.z);
+                    w = split.next().unwrap_or("a").parse::<f32>().unwrap_or(cv.w);
                 } else {
                     x = value.parse::<f32>().unwrap_or(cv.x);
                     y = value.parse::<f32>().unwrap_or(cv.y);
@@ -680,6 +680,24 @@ impl WorldMachine {
                         if let Some(mesh) = meshes.get("boxviz") {
                             let mut mesh = *mesh;
                             // if this entity has a transform, apply it
+                            let box_collider_position = box_collider.get_parameter("position").unwrap();
+                            let box_collider_position = match box_collider_position.value {
+                                ParameterValue::Vec3(v) => v,
+                                _ => {
+                                    error!("render: box_collider position is not a vec3");
+                                    continue;
+                                }
+                            };
+                            let box_collider_size = box_collider.get_parameter("size").unwrap();
+                            let box_collider_size = match box_collider_size.value {
+                                ParameterValue::Vec3(v) => v,
+                                _ => {
+                                    error!("render: box_collider size is not a vec3");
+                                    continue;
+                                }
+                            };
+                            mesh.position = box_collider_position;
+                            mesh.scale = box_collider_size;
                             if let Some(transform) = entity.get_component(COMPONENT_TYPE_TRANSFORM.clone()) {
                                 if let Some(position) = transform.get_parameter("position") {
                                     let position = match position.value {
@@ -710,27 +728,9 @@ impl WorldMachine {
                                             continue;
                                         }
                                     };
-                                    mesh.scale += scale;
+                                    mesh.scale *= scale;
                                 }
                             }
-                            let box_collider_position = box_collider.get_parameter("position").unwrap();
-                            let box_collider_position = match box_collider_position.value {
-                                ParameterValue::Vec3(v) => v,
-                                _ => {
-                                    error!("render: box_collider position is not a vec3");
-                                    continue;
-                                }
-                            };
-                            let box_collider_size = box_collider.get_parameter("size").unwrap();
-                            let box_collider_size = match box_collider_size.value {
-                                ParameterValue::Vec3(v) => v,
-                                _ => {
-                                    error!("render: box_collider size is not a vec3");
-                                    continue;
-                                }
-                            };
-                            mesh.position += box_collider_position;
-                            mesh.scale *= box_collider_size;
 
                             let shaders = renderer.shaders.clone().unwrap();
                             let shader = shaders.get("viz").unwrap();
