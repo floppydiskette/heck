@@ -9,6 +9,9 @@ edition = "2021"
 gtk = { version = "0.4", package = "gtk4" }
 gltf = { version = "1.0" }
 serde = { version = "1.0", features = ["derive"] }
+glad-gl = { path = "./glad-gl" }
+shared_library = "0.1"
+epoxy = "0.1.0"
 serde_yaml = "0.9"
 rmp-serde = "1.1.0"
 gfx-maths = { version = "0.2.8", features = ["serde"]}
@@ -21,5 +24,5 @@ gl_matrix = "0.0"
 [build-dependencies]
 gtk = { version = "0.4", package = "gtk4" }
 
-[target.'cfg(target_os = "linux")'.dependencies]
-libsex = { path = "../libsex" }
+#[target.'cfg(target_os = "linux")'.dependencies]
+#libsex = { path = "../libsex" }

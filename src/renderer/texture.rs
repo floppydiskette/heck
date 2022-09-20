@@ -1,5 +1,5 @@
 use gfx_maths::Vec2;
-use libsex::bindings::*;
+use glad_gl::gl::*;
 use crate::renderer::H2eckRenderer;
 
 #[derive(Clone, Copy)]
@@ -64,7 +64,7 @@ impl Texture {
             // load opengl textures
             let mut textures: [GLuint; 4] = [0; 4];
             unsafe {
-                glGenTextures(4, textures.as_mut_ptr());
+                GenTextures(4, textures.as_mut_ptr());
             }
             let diffuse_texture = textures[0];
             let normal_texture = textures[1];
@@ -73,15 +73,15 @@ impl Texture {
 
             // diffuse texture
             unsafe {
-                glBindTexture(GL_TEXTURE_2D, diffuse_texture);
+                BindTexture(TEXTURE_2D, diffuse_texture);
                 // IF YOU'RE GETTING A SEGFAULT HERE, MAKE SURE THE TEXTURE HAS AN ALPHA CHANNEL
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA as i32, diffuse_data.dimensions.0 as i32, diffuse_data.dimensions.1 as i32, 0, GL_RGBA, GL_UNSIGNED_BYTE, diffuse_data.data.as_ptr() as *const GLvoid);
+                TexImage2D(TEXTURE_2D, 0, RGBA as i32, diffuse_data.dimensions.0 as i32, diffuse_data.dimensions.1 as i32, 0, RGBA, UNSIGNED_BYTE, diffuse_data.data.as_ptr() as *const GLvoid);
 
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR as i32);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR as i32);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT as i32);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT as i32);
-                glGenerateMipmap(GL_TEXTURE_2D);
+                TexParameteri(TEXTURE_2D, TEXTURE_MIN_FILTER, LINEAR_MIPMAP_LINEAR as i32);
+                TexParameteri(TEXTURE_2D, TEXTURE_MAG_FILTER, LINEAR as i32);
+                TexParameteri(TEXTURE_2D, TEXTURE_WRAP_S, REPEAT as i32);
+                TexParameteri(TEXTURE_2D, TEXTURE_WRAP_T, REPEAT as i32);
+                GenerateMipmap(TEXTURE_2D);
             }
 
             if !simple {
@@ -95,38 +95,38 @@ impl Texture {
 
                 // normal texture
                 unsafe {
-                    glBindTexture(GL_TEXTURE_2D, normal_texture);
-                    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA as i32, normal_data.dimensions.0 as i32, normal_data.dimensions.1 as i32, 0, GL_RGBA, GL_UNSIGNED_BYTE, normal_data.data.as_ptr() as *const GLvoid);
+                    BindTexture(TEXTURE_2D, normal_texture);
+                    TexImage2D(TEXTURE_2D, 0, RGBA as i32, normal_data.dimensions.0 as i32, normal_data.dimensions.1 as i32, 0, RGBA, UNSIGNED_BYTE, normal_data.data.as_ptr() as *const GLvoid);
 
-                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR as i32);
-                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR as i32);
-                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT as i32);
-                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT as i32);
-                    glGenerateMipmap(GL_TEXTURE_2D);
+                    TexParameteri(TEXTURE_2D, TEXTURE_MIN_FILTER, LINEAR_MIPMAP_LINEAR as i32);
+                    TexParameteri(TEXTURE_2D, TEXTURE_MAG_FILTER, LINEAR as i32);
+                    TexParameteri(TEXTURE_2D, TEXTURE_WRAP_S, REPEAT as i32);
+                    TexParameteri(TEXTURE_2D, TEXTURE_WRAP_T, REPEAT as i32);
+                    GenerateMipmap(TEXTURE_2D);
                 }
 
                 // metallic texture
                 unsafe {
-                    glBindTexture(GL_TEXTURE_2D, metallic_texture);
-                    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA as i32, metallic_data.dimensions.0 as i32, metallic_data.dimensions.1 as i32, 0, GL_RGBA, GL_UNSIGNED_BYTE, metallic_data.data.as_ptr() as *const GLvoid);
+                    BindTexture(TEXTURE_2D, metallic_texture);
+                    TexImage2D(TEXTURE_2D, 0, RGBA as i32, metallic_data.dimensions.0 as i32, metallic_data.dimensions.1 as i32, 0, RGBA, UNSIGNED_BYTE, metallic_data.data.as_ptr() as *const GLvoid);
 
-                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR as i32);
-                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR as i32);
-                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT as i32);
-                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT as i32);
-                    glGenerateMipmap(GL_TEXTURE_2D);
+                    TexParameteri(TEXTURE_2D, TEXTURE_MIN_FILTER, LINEAR_MIPMAP_LINEAR as i32);
+                    TexParameteri(TEXTURE_2D, TEXTURE_MAG_FILTER, LINEAR as i32);
+                    TexParameteri(TEXTURE_2D, TEXTURE_WRAP_S, REPEAT as i32);
+                    TexParameteri(TEXTURE_2D, TEXTURE_WRAP_T, REPEAT as i32);
+                    GenerateMipmap(TEXTURE_2D);
                 }
 
                 // roughness texture
                 unsafe {
-                    glBindTexture(GL_TEXTURE_2D, roughness_texture);
-                    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA as i32, roughness_data.dimensions.0 as i32, roughness_data.dimensions.1 as i32, 0, GL_RGBA, GL_UNSIGNED_BYTE, roughness_data.data.as_ptr() as *const GLvoid);
+                    BindTexture(TEXTURE_2D, roughness_texture);
+                    TexImage2D(TEXTURE_2D, 0, RGBA as i32, roughness_data.dimensions.0 as i32, roughness_data.dimensions.1 as i32, 0, RGBA, UNSIGNED_BYTE, roughness_data.data.as_ptr() as *const GLvoid);
 
-                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR as i32);
-                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR as i32);
-                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT as i32);
-                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT as i32);
-                    glGenerateMipmap(GL_TEXTURE_2D);
+                    TexParameteri(TEXTURE_2D, TEXTURE_MIN_FILTER, LINEAR_MIPMAP_LINEAR as i32);
+                    TexParameteri(TEXTURE_2D, TEXTURE_MAG_FILTER, LINEAR as i32);
+                    TexParameteri(TEXTURE_2D, TEXTURE_WRAP_S, REPEAT as i32);
+                    TexParameteri(TEXTURE_2D, TEXTURE_WRAP_T, REPEAT as i32);
+                    GenerateMipmap(TEXTURE_2D);
                 }
             }
 
@@ -171,20 +171,20 @@ impl UiTexture {
             // load opengl textures
             let mut textures: [GLuint; 1] = [0; 1];
             unsafe {
-                glGenTextures(1, textures.as_mut_ptr());
+                GenTextures(1, textures.as_mut_ptr());
             }
             let diffuse_texture = textures[0];
 
             // diffuse texture
             unsafe {
-                glBindTexture(GL_TEXTURE_2D, diffuse_texture);
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA as i32, diffuse_data.dimensions.0 as i32, diffuse_data.dimensions.1 as i32, 0, GL_RGBA, GL_UNSIGNED_BYTE, diffuse_data.data.as_ptr() as *const GLvoid);
+                BindTexture(TEXTURE_2D, diffuse_texture);
+                TexImage2D(TEXTURE_2D, 0, RGBA as i32, diffuse_data.dimensions.0 as i32, diffuse_data.dimensions.1 as i32, 0, RGBA, UNSIGNED_BYTE, diffuse_data.data.as_ptr() as *const GLvoid);
 
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR as i32);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR as i32);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT as i32);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT as i32);
-                glGenerateMipmap(GL_TEXTURE_2D);
+                TexParameteri(TEXTURE_2D, TEXTURE_MIN_FILTER, LINEAR_MIPMAP_LINEAR as i32);
+                TexParameteri(TEXTURE_2D, TEXTURE_MAG_FILTER, LINEAR as i32);
+                TexParameteri(TEXTURE_2D, TEXTURE_WRAP_S, REPEAT as i32);
+                TexParameteri(TEXTURE_2D, TEXTURE_WRAP_T, REPEAT as i32);
+                GenerateMipmap(TEXTURE_2D);
             }
 
             // todo: for now we're only using diffuse textures

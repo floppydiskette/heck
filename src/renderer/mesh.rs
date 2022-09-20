@@ -1,7 +1,7 @@
 use std::ffi::CString;
 use std::ptr::null;
 use gfx_maths::*;
-use libsex::bindings::*;
+use glad_gl::gl::*;
 use crate::renderer::{H2eckRenderer, helpers, MAX_LIGHTS};
 use crate::renderer::shader::Shader;
 use crate::renderer::texture::Texture;
@@ -103,53 +103,53 @@ impl Mesh {
             // set the shader program
             if renderer.current_shader != Some(shader.name.clone()) {
                 unsafe {
-                    glUseProgram(shader.program);
+                    UseProgram(shader.program);
                     renderer.current_shader = Some(shader.name.clone());
                 }
             }
 
-            glGenVertexArrays(1, &mut vao);
-            glBindVertexArray(vao);
-            glGenBuffers(1, &mut vbo);
-            glBindBuffer(GL_ARRAY_BUFFER, vbo);
-            glBufferData(GL_ARRAY_BUFFER, (vertices_array.len() * std::mem::size_of::<GLfloat>()) as GLsizeiptr, vertices_array.as_ptr() as *const GLvoid, GL_STATIC_DRAW);
+            GenVertexArrays(1, &mut vao);
+            BindVertexArray(vao);
+            GenBuffers(1, &mut vbo);
+            BindBuffer(ARRAY_BUFFER, vbo);
+            BufferData(ARRAY_BUFFER, (vertices_array.len() * std::mem::size_of::<GLfloat>()) as GLsizeiptr, vertices_array.as_ptr() as *const GLvoid, STATIC_DRAW);
             // vertex positions for vertex shader
-            let pos = glGetAttribLocation(shader.program, CString::new("in_pos").unwrap().as_ptr());
-            glVertexAttribPointer(pos as GLuint, 3, GL_FLOAT, GL_FALSE as GLboolean, 0, null());
-            glEnableVertexAttribArray(0);
+            let pos = GetAttribLocation(shader.program, CString::new("in_pos").unwrap().as_ptr());
+            VertexAttribPointer(pos as GLuint, 3, FLOAT, FALSE as GLboolean, 0, null());
+            EnableVertexAttribArray(0);
 
             // uvs
-            glGenBuffers(1, &mut uvbo);
-            glBindBuffer(GL_ARRAY_BUFFER, uvbo);
-            glBufferData(GL_ARRAY_BUFFER, (uvs_array.len() * std::mem::size_of::<GLfloat>()) as GLsizeiptr, uvs_array.as_ptr() as *const GLvoid, GL_STATIC_DRAW);
+            GenBuffers(1, &mut uvbo);
+            BindBuffer(ARRAY_BUFFER, uvbo);
+            BufferData(ARRAY_BUFFER, (uvs_array.len() * std::mem::size_of::<GLfloat>()) as GLsizeiptr, uvs_array.as_ptr() as *const GLvoid, STATIC_DRAW);
             // vertex uvs for fragment shader
-            let uv = glGetAttribLocation(shader.program, CString::new("in_uv").unwrap().as_ptr());
-            glVertexAttribPointer(uv as GLuint, 2, GL_FLOAT, GL_TRUE as GLboolean, 0, null());
-            glEnableVertexAttribArray(1);
+            let uv = GetAttribLocation(shader.program, CString::new("in_uv").unwrap().as_ptr());
+            VertexAttribPointer(uv as GLuint, 2, FLOAT, TRUE as GLboolean, 0, null());
+            EnableVertexAttribArray(1);
 
             // normals
             let mut normalbo = 0 as GLuint;
-            glGenBuffers(1, &mut normalbo);
-            glBindBuffer(GL_ARRAY_BUFFER, normalbo);
-            glBufferData(GL_ARRAY_BUFFER, (normals_array.len() * std::mem::size_of::<GLfloat>()) as GLsizeiptr, normals_array.as_ptr() as *const GLvoid, GL_STATIC_DRAW);
+            GenBuffers(1, &mut normalbo);
+            BindBuffer(ARRAY_BUFFER, normalbo);
+            BufferData(ARRAY_BUFFER, (normals_array.len() * std::mem::size_of::<GLfloat>()) as GLsizeiptr, normals_array.as_ptr() as *const GLvoid, STATIC_DRAW);
             // vertex normals for fragment shader
-            let normal = glGetAttribLocation(shader.program, CString::new("in_normal").unwrap().as_ptr());
-            glVertexAttribPointer(normal as GLuint, 3, GL_FLOAT, GL_TRUE as GLboolean, 0, null());
-            glEnableVertexAttribArray(2);
+            let normal = GetAttribLocation(shader.program, CString::new("in_normal").unwrap().as_ptr());
+            VertexAttribPointer(normal as GLuint, 3, FLOAT, TRUE as GLboolean, 0, null());
+            EnableVertexAttribArray(2);
 
 
             // now the indices
-            glGenBuffers(1, &mut ebo);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-            glBufferData(GL_ELEMENT_ARRAY_BUFFER, (indices_array.len() * std::mem::size_of::<GLuint>()) as GLsizeiptr, indices_array.as_ptr() as *const GLvoid, GL_STATIC_DRAW);
+            GenBuffers(1, &mut ebo);
+            BindBuffer(ELEMENT_ARRAY_BUFFER, ebo);
+            BufferData(ELEMENT_ARRAY_BUFFER, (indices_array.len() * std::mem::size_of::<GLuint>()) as GLsizeiptr, indices_array.as_ptr() as *const GLvoid, STATIC_DRAW);
         }
 
 
         unsafe {
-            let mut error = glGetError();
-            while error != GL_NO_ERROR {
+            let mut error = GetError();
+            while error != NO_ERROR {
                 error!("OpenGL error while initialising mesh: {}", error);
-                error = glGetError();
+                error = GetError();
             }
         }
 
@@ -178,52 +178,52 @@ impl Mesh {
         // load the shader
         if renderer.current_shader != Some(shader.name.clone()) {
             unsafe {
-                glUseProgram(shader.program);
+                UseProgram(shader.program);
                 renderer.current_shader = Some(shader.name.clone());
             }
         }
         unsafe {
 
-            glEnableVertexAttribArray(0);
-            glBindVertexArray(self.vao);
+            EnableVertexAttribArray(0);
+            BindVertexArray(self.vao);
             if let Some(texture) = texture {
                 // send the material struct to the shader
                 let material = texture.material;
-                let material_diffuse = glGetUniformLocation(shader.program, CString::new("u_material.diffuse").unwrap().as_ptr());
-                let material_roughness = glGetUniformLocation(shader.program, CString::new("u_material.roughness").unwrap().as_ptr());
-                let material_metallic = glGetUniformLocation(shader.program, CString::new("u_material.metallic").unwrap().as_ptr());
-                let material_normal = glGetUniformLocation(shader.program, CString::new("u_material.normal").unwrap().as_ptr());
+                let material_diffuse = GetUniformLocation(shader.program, CString::new("u_material.diffuse").unwrap().as_ptr());
+                let material_roughness = GetUniformLocation(shader.program, CString::new("u_material.roughness").unwrap().as_ptr());
+                let material_metallic = GetUniformLocation(shader.program, CString::new("u_material.metallic").unwrap().as_ptr());
+                let material_normal = GetUniformLocation(shader.program, CString::new("u_material.normal").unwrap().as_ptr());
 
                 // load textures
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, material.diffuse_texture);
-                glUniform1i(material_diffuse, 0);
-                glActiveTexture(GL_TEXTURE1);
-                glBindTexture(GL_TEXTURE_2D, material.roughness_texture);
-                glUniform1i(material_roughness, 1);
-                glActiveTexture(GL_TEXTURE2);
-                glBindTexture(GL_TEXTURE_2D, material.metallic_texture);
-                glUniform1i(material_metallic, 2);
-                glActiveTexture(GL_TEXTURE3);
-                glBindTexture(GL_TEXTURE_2D, material.normal_texture);
-                glUniform1i(material_normal, 3);
+                ActiveTexture(TEXTURE0);
+                BindTexture(TEXTURE_2D, material.diffuse_texture);
+                Uniform1i(material_diffuse, 0);
+                ActiveTexture(TEXTURE1);
+                BindTexture(TEXTURE_2D, material.roughness_texture);
+                Uniform1i(material_roughness, 1);
+                ActiveTexture(TEXTURE2);
+                BindTexture(TEXTURE_2D, material.metallic_texture);
+                Uniform1i(material_metallic, 2);
+                ActiveTexture(TEXTURE3);
+                BindTexture(TEXTURE_2D, material.normal_texture);
+                Uniform1i(material_normal, 3);
 
             }
 
             // send the lights to the shader
             let light_count = renderer.lights.len();
             let light_count = if light_count > MAX_LIGHTS { MAX_LIGHTS } else { light_count };
-            let light_count_loc = glGetUniformLocation(shader.program, CString::new("u_light_count").unwrap().as_ptr());
-            glUniform1i(light_count_loc, light_count as i32);
+            let light_count_loc = GetUniformLocation(shader.program, CString::new("u_light_count").unwrap().as_ptr());
+            Uniform1i(light_count_loc, light_count as i32);
             for (i, light) in renderer.lights.iter().enumerate() {
                 if i >= MAX_LIGHTS { break; }
-                let light_pos = glGetUniformLocation(shader.program, CString::new(format!("u_lights[{}].position", i)).unwrap().as_ptr());
-                let light_color = glGetUniformLocation(shader.program, CString::new(format!("u_lights[{}].colour", i)).unwrap().as_ptr());
-                let light_intensity = glGetUniformLocation(shader.program, CString::new(format!("u_lights[{}].intensity", i)).unwrap().as_ptr());
+                let light_pos = GetUniformLocation(shader.program, CString::new(format!("u_lights[{}].position", i)).unwrap().as_ptr());
+                let light_color = GetUniformLocation(shader.program, CString::new(format!("u_lights[{}].colour", i)).unwrap().as_ptr());
+                let light_intensity = GetUniformLocation(shader.program, CString::new(format!("u_lights[{}].intensity", i)).unwrap().as_ptr());
 
-                glUniform3f(light_pos, light.position.x, light.position.y, light.position.z);
-                glUniform3f(light_color, light.color.x, light.color.y, light.color.z);
-                glUniform1f(light_intensity, light.intensity as f32);
+                Uniform3f(light_pos, light.position.x, light.position.y, light.position.z);
+                Uniform3f(light_color, light.color.x, light.color.y, light.color.z);
+                Uniform1f(light_intensity, light.intensity as f32);
             }
 
             // transformation time!
@@ -237,27 +237,27 @@ impl Mesh {
             let mvp = camera_projection * camera_view * model_matrix;
 
             // send the mvp matrix to the shader
-            let mvp_loc = glGetUniformLocation(shader.program, CString::new("u_mvp").unwrap().as_ptr());
-            glUniformMatrix4fv(mvp_loc, 1, GL_FALSE as GLboolean, mvp.as_ptr());
+            let mvp_loc = GetUniformLocation(shader.program, CString::new("u_mvp").unwrap().as_ptr());
+            UniformMatrix4fv(mvp_loc, 1, FALSE as GLboolean, mvp.as_ptr());
 
             // send the model matrix to the shader
-            let model_loc = glGetUniformLocation(shader.program, CString::new("u_model").unwrap().as_ptr());
-            glUniformMatrix4fv(model_loc, 1, GL_FALSE as GLboolean, model_matrix.as_ptr());
+            let model_loc = GetUniformLocation(shader.program, CString::new("u_model").unwrap().as_ptr());
+            UniformMatrix4fv(model_loc, 1, FALSE as GLboolean, model_matrix.as_ptr());
 
             // send the camera position to the shader
-            let camera_pos_loc = glGetUniformLocation(shader.program, CString::new("u_camera_pos").unwrap().as_ptr());
-            glUniform3f(camera_pos_loc,
+            let camera_pos_loc = GetUniformLocation(shader.program, CString::new("u_camera_pos").unwrap().as_ptr());
+            Uniform3f(camera_pos_loc,
                         renderer.camera.as_mut().unwrap().get_position().x,
                         renderer.camera.as_mut().unwrap().get_position().y,
                         renderer.camera.as_mut().unwrap().get_position().z);
 
-            glDrawElements(GL_TRIANGLES, self.num_indices as GLsizei, GL_UNSIGNED_INT, null());
+            DrawElements(TRIANGLES, self.num_indices as GLsizei, UNSIGNED_INT, null());
 
             // print opengl errors
-            let mut error = glGetError();
-            while error != GL_NO_ERROR {
+            let mut error = GetError();
+            while error != NO_ERROR {
                 error!("OpenGL error while rendering: {}", error);
-                error = glGetError();
+                error = GetError();
             }
         }
     }

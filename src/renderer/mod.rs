@@ -12,8 +12,9 @@ pub mod light;
 use std::collections::HashMap;
 use std::ffi::c_void;
 use gfx_maths::{Quaternion, Vec2, Vec3};
+use glad_gl::gl;
 use gtk::gdk::{Key, ModifierType};
-use libsex::bindings::*;
+use glad_gl::gl::*;
 use crate::renderer::camera::{Camera, CameraMovement};
 use crate::renderer::keyboard::KeyboardManager;
 use crate::renderer::light::Light;
@@ -108,38 +109,38 @@ impl H2eckRenderer {
         unsafe {
             // get the number of the current framebuffer
             let mut original: i32 = 0;
-            glGetIntegerv(GL_FRAMEBUFFER_BINDING, &mut original);
+            GetIntegerv(FRAMEBUFFER_BINDING, &mut original);
             self.framebuffers.original = original as usize;
 
             // Configure culling
-            glEnable(GL_CULL_FACE);
-            glCullFace(GL_FRONT);
-            glEnable(GL_DEPTH_TEST);
-            glDepthFunc(GL_LESS);
+            Enable(CULL_FACE);
+            CullFace(FRONT);
+            Enable(DEPTH_TEST);
+            DepthFunc(LESS);
 
             // configure stencil test
-            glEnable(GL_STENCIL_TEST);
+            Enable(STENCIL_TEST);
 
             // create the postprocessing framebuffer
             let mut postbuffer = 0;
-            glGenFramebuffers(1, &mut postbuffer);
-            glBindFramebuffer(GL_FRAMEBUFFER, postbuffer);
+            GenFramebuffers(1, &mut postbuffer);
+            BindFramebuffer(FRAMEBUFFER, postbuffer);
             let mut posttexture = 0;
-            glGenTextures(1, &mut posttexture);
-            glBindTexture(GL_TEXTURE_2D, posttexture);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB as i32, width as i32, height as i32, 0, GL_RGB, GL_UNSIGNED_BYTE, std::ptr::null());
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR as i32);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR as i32);
-            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, posttexture, 0);
+            GenTextures(1, &mut posttexture);
+            BindTexture(TEXTURE_2D, posttexture);
+            TexImage2D(TEXTURE_2D, 0, RGB as i32, width as i32, height as i32, 0, RGB, UNSIGNED_BYTE, std::ptr::null());
+            TexParameteri(TEXTURE_2D, TEXTURE_MIN_FILTER, LINEAR as i32);
+            TexParameteri(TEXTURE_2D, TEXTURE_MAG_FILTER, LINEAR as i32);
+            FramebufferTexture2D(FRAMEBUFFER, COLOR_ATTACHMENT0, TEXTURE_2D, posttexture, 0);
             // create a renderbuffer object for depth and stencil attachment (we won't be sampling these)
             let mut renderbuffer = 0;
-            glGenRenderbuffers(1, &mut renderbuffer);
-            glBindRenderbuffer(GL_RENDERBUFFER, renderbuffer);
-            glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width as i32, height as i32);
-            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, renderbuffer);
+            GenRenderbuffers(1, &mut renderbuffer);
+            BindRenderbuffer(RENDERBUFFER, renderbuffer);
+            RenderbufferStorage(RENDERBUFFER, DEPTH24_STENCIL8, width as i32, height as i32);
+            FramebufferRenderbuffer(FRAMEBUFFER, DEPTH_STENCIL_ATTACHMENT, RENDERBUFFER, renderbuffer);
 
             // check if framebuffer is complete
-            if glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE {
+            if CheckFramebufferStatus(FRAMEBUFFER) != FRAMEBUFFER_COMPLETE {
                 panic!("framebuffer is not complete!");
             }
             self.framebuffers.postbuffer = postbuffer as usize;
@@ -148,11 +149,11 @@ impl H2eckRenderer {
 
             // create a simple quad that fills the screen
             let mut screenquad_vao = 0;
-            glGenVertexArrays(1, &mut screenquad_vao);
-            glBindVertexArray(screenquad_vao);
+            GenVertexArrays(1, &mut screenquad_vao);
+            BindVertexArray(screenquad_vao);
             let mut screenquad_vbo = 0;
-            glGenBuffers(1, &mut screenquad_vbo);
-            glBindBuffer(GL_ARRAY_BUFFER, screenquad_vbo);
+            GenBuffers(1, &mut screenquad_vbo);
+            BindBuffer(ARRAY_BUFFER, screenquad_vbo);
             // just stealing this from the learnopengl.com tutorial (it's a FUCKING QUAD, HOW ORIGINAL CAN IT BE?)
             let quad_vertices: [f32; 30] = [
                 // positions        // texture Coords
@@ -164,50 +165,50 @@ impl H2eckRenderer {
                 1.0, -1.0, 0.0,    1.0, 0.0,
                 1.0,  1.0, 0.0,    1.0, 1.0,
             ];
-            glBufferData(GL_ARRAY_BUFFER, (quad_vertices.len() * std::mem::size_of::<f32>()) as GLsizeiptr, quad_vertices.as_ptr() as *const c_void, GL_STATIC_DRAW);
+            BufferData(ARRAY_BUFFER, (quad_vertices.len() * std::mem::size_of::<f32>()) as GLsizeiptr, quad_vertices.as_ptr() as *const c_void, STATIC_DRAW);
             // as this is such a simple quad, we're not gonna bother with indices
-            glEnableVertexAttribArray(0);
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE as GLboolean, 5 * std::mem::size_of::<f32>() as i32, std::ptr::null());
-            glEnableVertexAttribArray(1);
-            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE as GLboolean, 5 * std::mem::size_of::<f32>() as i32, (3 * std::mem::size_of::<f32>()) as *const c_void);
+            EnableVertexAttribArray(0);
+            VertexAttribPointer(0, 3, FLOAT, FALSE as GLboolean, 5 * std::mem::size_of::<f32>() as i32, std::ptr::null());
+            EnableVertexAttribArray(1);
+            VertexAttribPointer(1, 2, FLOAT, FALSE as GLboolean, 5 * std::mem::size_of::<f32>() as i32, (3 * std::mem::size_of::<f32>()) as *const c_void);
             self.framebuffers.screenquad_vao = screenquad_vao as usize;
 
             // create the depth framebuffer
             let mut depthbuffer = 0;
-            glGenFramebuffers(1, &mut depthbuffer);
-            glBindFramebuffer(GL_FRAMEBUFFER, depthbuffer);
+            GenFramebuffers(1, &mut depthbuffer);
+            BindFramebuffer(FRAMEBUFFER, depthbuffer);
             let mut depthtexture = 0;
-            glGenTextures(1, &mut depthtexture);
-            glBindTexture(GL_TEXTURE_2D, depthtexture);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT as i32, SHADOW_SIZE as i32, SHADOW_SIZE as i32, 0, GL_DEPTH_COMPONENT, GL_FLOAT, std::ptr::null());
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST as i32);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST as i32);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT as i32);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT as i32);
-            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthtexture, 0);
-            glDrawBuffer(GL_NONE);
-            glReadBuffer(GL_NONE);
-            if glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE {
+            GenTextures(1, &mut depthtexture);
+            BindTexture(TEXTURE_2D, depthtexture);
+            TexImage2D(TEXTURE_2D, 0, DEPTH_COMPONENT as i32, SHADOW_SIZE as i32, SHADOW_SIZE as i32, 0, DEPTH_COMPONENT, FLOAT, std::ptr::null());
+            TexParameteri(TEXTURE_2D, TEXTURE_MIN_FILTER, NEAREST as i32);
+            TexParameteri(TEXTURE_2D, TEXTURE_MAG_FILTER, NEAREST as i32);
+            TexParameteri(TEXTURE_2D, TEXTURE_WRAP_S, REPEAT as i32);
+            TexParameteri(TEXTURE_2D, TEXTURE_WRAP_T, REPEAT as i32);
+            FramebufferTexture2D(FRAMEBUFFER, DEPTH_ATTACHMENT, TEXTURE_2D, depthtexture, 0);
+            DrawBuffer(NONE);
+            ReadBuffer(NONE);
+            if CheckFramebufferStatus(FRAMEBUFFER) != FRAMEBUFFER_COMPLETE {
                 panic!("framebuffer is not complete (depth buffer)!");
             }
 
             self.framebuffers.depthbuffer = depthbuffer as usize;
             self.framebuffers.depthbuffer_texture = depthtexture as usize;
 
-            glEnable(GL_BLEND);
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            Enable(BLEND);
+            BlendFunc(SRC_ALPHA, ONE_MINUS_SRC_ALPHA);
 
 
-            glViewport(0, 0, width as i32, height as i32);
+            Viewport(0, 0, width as i32, height as i32);
             // make top left corner as origin
 
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+            Clear(COLOR_BUFFER_BIT | DEPTH_BUFFER_BIT | STENCIL_BUFFER_BIT);
 
             // print opengl errors
-            let mut error = glGetError();
-            while error != GL_NO_ERROR {
+            let mut error = GetError();
+            while error != NO_ERROR {
                 error!("OpenGL error while initialising render subsystem: {}", error);
-                error = glGetError();
+                error = GetError();
             }
         }
 
@@ -321,17 +322,17 @@ impl H2eckRenderer {
 
     fn normal_scene_render(&mut self, worldmachine: &mut WorldMachine) {
         unsafe {
-            glEnable(GL_CULL_FACE);
-            glCullFace(GL_FRONT);
-            glEnable(GL_DEPTH_TEST);
-            glDepthFunc(GL_LESS);
+            Enable(CULL_FACE);
+            CullFace(FRONT);
+            Enable(DEPTH_TEST);
+            DepthFunc(LESS);
 
             // disable gamma correction
-            glDisable(GL_FRAMEBUFFER_SRGB);
+            Disable(FRAMEBUFFER_SRGB);
 
             // set the clear color to black
-            glClearColor(0.1, 0.0, 0.1, 1.0);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+            ClearColor(0.1, 0.0, 0.1, 1.0);
+            Clear(COLOR_BUFFER_BIT | DEPTH_BUFFER_BIT | STENCIL_BUFFER_BIT);
 
             /*if let Some(terrains) = self.terrains.clone() {
                 // render the terrains
@@ -362,50 +363,50 @@ impl H2eckRenderer {
         }
 
         unsafe {
-            glViewport(0, 0, self.camera.as_mut().unwrap().get_window_size().x as GLsizei, self.camera.as_mut().unwrap().get_window_size().y as GLsizei);
+            Viewport(0, 0, self.camera.as_mut().unwrap().get_window_size().x as GLsizei, self.camera.as_mut().unwrap().get_window_size().y as GLsizei);
 
             // set framebuffer to the post processing framebuffer
-            glBindFramebuffer(GL_FRAMEBUFFER, self.framebuffers.postbuffer as GLuint);
+            BindFramebuffer(FRAMEBUFFER, self.framebuffers.postbuffer as GLuint);
 
             self.normal_scene_render(worldmachine);
 
             // set framebuffer to the default framebuffer
-            glBindFramebuffer(GL_FRAMEBUFFER, self.framebuffers.original as GLuint);
-            glClearColor(1.0, 0.0, 0.1, 1.0);
-            glClear(GL_COLOR_BUFFER_BIT);
+            BindFramebuffer(FRAMEBUFFER, self.framebuffers.original as GLuint);
+            ClearColor(1.0, 0.0, 0.1, 1.0);
+            Clear(COLOR_BUFFER_BIT);
 
             if self.current_shader != Some("postbuffer".to_string()) {
                 unsafe {
-                    glUseProgram(self.shaders.as_mut().unwrap().get("postbuffer").unwrap().program);
+                    UseProgram(self.shaders.as_mut().unwrap().get("postbuffer").unwrap().program);
                     self.current_shader = Some("postbuffer".to_string());
                 }
             }
             // render the post processing framebuffer
-            glBindVertexArray(self.framebuffers.screenquad_vao as GLuint);
-            glDisable(GL_DEPTH_TEST);
+            BindVertexArray(self.framebuffers.screenquad_vao as GLuint);
+            Disable(DEPTH_TEST);
 
             // enable gamma correction
-            glEnable(GL_FRAMEBUFFER_SRGB);
+            Enable(FRAMEBUFFER_SRGB);
 
-            // make sure that gl doesn't cull the back face of the quad
-            glDisable(GL_CULL_FACE);
+            // make sure that  doesn't cull the back face of the quad
+            Disable(CULL_FACE);
 
             // set texture uniform
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, self.framebuffers.postbuffer_texture as GLuint);
-            glUniform1i(glGetUniformLocation(self.shaders.as_mut().unwrap().get("postbuffer").unwrap().program, "u_texture\0".as_ptr() as *const GLchar), 0);
+            ActiveTexture(TEXTURE0);
+            BindTexture(TEXTURE_2D, self.framebuffers.postbuffer_texture as GLuint);
+            Uniform1i(GetUniformLocation(self.shaders.as_mut().unwrap().get("postbuffer").unwrap().program, "u_texture\0".as_ptr() as *const GLchar), 0);
             // draw the screen quad
-            glDrawArrays(GL_TRIANGLES, 0, 6);
+            DrawArrays(TRIANGLES, 0, 6);
 
             // print opengl errors
-            let mut error = glGetError();
-            while error != GL_NO_ERROR {
+            let mut error = GetError();
+            while error != NO_ERROR {
                 error!("OpenGL error while rendering to postbuffer: {}", error);
-                error = glGetError();
+                error = GetError();
             }
 
 
-            glFlush();
+            Flush();
         }
     }
 }

@@ -1,7 +1,7 @@
 use std::ffi::CString;
 use std::ptr::null;
 use gfx_maths::{Mat4, Quaternion, Vec3};
-use libsex::bindings::*;
+use glad_gl::gl::*;
 use crate::renderer::{H2eckRenderer, MAX_LIGHTS};
 use crate::renderer::mesh::Mesh;
 use crate::renderer::shader::Shader;
@@ -45,43 +45,43 @@ impl Terrain {
         // load the shader
         if renderer.current_shader != Some(self.shader.name.clone()) {
             unsafe {
-                glUseProgram(self.shader.program);
+                UseProgram(self.shader.program);
                 renderer.current_shader = Some(self.shader.name.clone());
             }
         }
         unsafe {
-            glEnableVertexAttribArray(0);
-            glBindVertexArray(self.mesh.vao);
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, self.mixmap.diffuse_texture);
-            glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_2D, self.textures[0].diffuse_texture);
-            glActiveTexture(GL_TEXTURE2);
-            glBindTexture(GL_TEXTURE_2D, self.textures[1].diffuse_texture);
-            glActiveTexture(GL_TEXTURE3);
-            glBindTexture(GL_TEXTURE_2D, self.textures[2].diffuse_texture);
-            glActiveTexture(GL_TEXTURE4);
-            glBindTexture(GL_TEXTURE_2D, self.textures[3].diffuse_texture);
-            glUniform1i(glGetUniformLocation(self.shader.program, CString::new("mixmap").unwrap().as_ptr()), 0);
-            glUniform1i(glGetUniformLocation(self.shader.program, CString::new("tex0").unwrap().as_ptr()), 1);
-            glUniform1i(glGetUniformLocation(self.shader.program, CString::new("tex1").unwrap().as_ptr()), 2);
-            glUniform1i(glGetUniformLocation(self.shader.program, CString::new("tex2").unwrap().as_ptr()), 3);
-            glUniform1i(glGetUniformLocation(self.shader.program, CString::new("tex3").unwrap().as_ptr()), 4);
+            EnableVertexAttribArray(0);
+            BindVertexArray(self.mesh.vao);
+            ActiveTexture(TEXTURE0);
+            BindTexture(TEXTURE_2D, self.mixmap.diffuse_texture);
+            ActiveTexture(TEXTURE1);
+            BindTexture(TEXTURE_2D, self.textures[0].diffuse_texture);
+            ActiveTexture(TEXTURE2);
+            BindTexture(TEXTURE_2D, self.textures[1].diffuse_texture);
+            ActiveTexture(TEXTURE3);
+            BindTexture(TEXTURE_2D, self.textures[2].diffuse_texture);
+            ActiveTexture(TEXTURE4);
+            BindTexture(TEXTURE_2D, self.textures[3].diffuse_texture);
+            Uniform1i(GetUniformLocation(self.shader.program, CString::new("mixmap").unwrap().as_ptr()), 0);
+            Uniform1i(GetUniformLocation(self.shader.program, CString::new("tex0").unwrap().as_ptr()), 1);
+            Uniform1i(GetUniformLocation(self.shader.program, CString::new("tex1").unwrap().as_ptr()), 2);
+            Uniform1i(GetUniformLocation(self.shader.program, CString::new("tex2").unwrap().as_ptr()), 3);
+            Uniform1i(GetUniformLocation(self.shader.program, CString::new("tex3").unwrap().as_ptr()), 4);
 
             // send the lights to the shader
             let light_count = renderer.lights.len();
             let light_count = if light_count > MAX_LIGHTS { MAX_LIGHTS } else { light_count };
-            let light_count_loc = glGetUniformLocation(self.shader.program, CString::new("u_light_count").unwrap().as_ptr());
-            glUniform1i(light_count_loc, light_count as i32);
+            let light_count_loc = GetUniformLocation(self.shader.program, CString::new("u_light_count").unwrap().as_ptr());
+            Uniform1i(light_count_loc, light_count as i32);
             for (i, light) in renderer.lights.iter().enumerate() {
                 if i >= MAX_LIGHTS { break; }
-                let light_pos = glGetUniformLocation(self.shader.program, CString::new(format!("u_lights[{}].position", i)).unwrap().as_ptr());
-                let light_color = glGetUniformLocation(self.shader.program, CString::new(format!("u_lights[{}].colour", i)).unwrap().as_ptr());
-                let light_intensity = glGetUniformLocation(self.shader.program, CString::new(format!("u_lights[{}].intensity", i)).unwrap().as_ptr());
+                let light_pos = GetUniformLocation(self.shader.program, CString::new(format!("u_lights[{}].position", i)).unwrap().as_ptr());
+                let light_color = GetUniformLocation(self.shader.program, CString::new(format!("u_lights[{}].colour", i)).unwrap().as_ptr());
+                let light_intensity = GetUniformLocation(self.shader.program, CString::new(format!("u_lights[{}].intensity", i)).unwrap().as_ptr());
 
-                glUniform3f(light_pos, light.position.x, light.position.y, light.position.z);
-                glUniform3f(light_color, light.color.x, light.color.y, light.color.z);
-                glUniform1f(light_intensity, light.intensity as f32);
+                Uniform3f(light_pos, light.position.x, light.position.y, light.position.z);
+                Uniform3f(light_color, light.color.x, light.color.y, light.color.z);
+                Uniform1f(light_intensity, light.intensity as f32);
             }
 
 
@@ -96,28 +96,28 @@ impl Terrain {
             let mvp = camera_projection * camera_view * model_matrix;
 
             // send the mvp matrix to the shader
-            let mvp_loc = glGetUniformLocation(self.shader.program, CString::new("u_mvp").unwrap().as_ptr());
-            glUniformMatrix4fv(mvp_loc, 1, GL_FALSE as GLboolean, mvp.as_ptr());
+            let mvp_loc = GetUniformLocation(self.shader.program, CString::new("u_mvp").unwrap().as_ptr());
+            UniformMatrix4fv(mvp_loc, 1, FALSE as GLboolean, mvp.as_ptr());
 
 
             // send the model matrix to the shader
-            let model_loc = glGetUniformLocation(self.shader.program, CString::new("u_model").unwrap().as_ptr());
-            glUniformMatrix4fv(model_loc, 1, GL_FALSE as GLboolean, model_matrix.as_ptr());
+            let model_loc = GetUniformLocation(self.shader.program, CString::new("u_model").unwrap().as_ptr());
+            UniformMatrix4fv(model_loc, 1, FALSE as GLboolean, model_matrix.as_ptr());
 
             // send the camera position to the shader
-            let camera_pos_loc = glGetUniformLocation(self.shader.program, CString::new("u_camera_pos").unwrap().as_ptr());
-            glUniform3f(camera_pos_loc,
+            let camera_pos_loc = GetUniformLocation(self.shader.program, CString::new("u_camera_pos").unwrap().as_ptr());
+            Uniform3f(camera_pos_loc,
                         renderer.camera.as_mut().unwrap().get_position().x,
                         renderer.camera.as_mut().unwrap().get_position().y,
                         renderer.camera.as_mut().unwrap().get_position().z);
 
-            glDrawElements(GL_TRIANGLES, self.mesh.num_indices as GLsizei, GL_UNSIGNED_INT, null());
+            DrawElements(TRIANGLES, self.mesh.num_indices as GLsizei, UNSIGNED_INT, null());
 
             // print opengl errors
-            let mut error = glGetError();
-            while error != GL_NO_ERROR {
+            let mut error = GetError();
+            while error != NO_ERROR {
                 error!("OpenGL error while rendering: {}", error);
-                error = glGetError();
+                error = GetError();
             }
         }
     }

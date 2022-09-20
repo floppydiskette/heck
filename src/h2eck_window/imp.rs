@@ -1,5 +1,7 @@
 use std::ffi::CString;
+use std::ptr;
 use std::sync::{Arc, Mutex};
+use glad_gl::gl;
 use glib::subclass::InitializingObject;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
@@ -9,6 +11,7 @@ use gtk::gdk::ffi::GdkFrameClock;
 use gtk::gio::Menu;
 use gtk::glib::translate::ToGlibPtr;
 use gtk::glib::{Type, Value};
+use shared_library::dynamic_library::DynamicLibrary;
 use crate::gio::glib::clone;
 use crate::gio::SimpleAction;
 use crate::h2eck_window::editor::Editor;
@@ -75,6 +78,18 @@ impl h2eckWindow {
         let worldmachine = obj.clone().imp().worldmachine.clone();
         let editor = self.editor.clone();
         editor_obj.imp().main_view.connect_realize( move |a| {
+
+            epoxy::load_with(|s| {
+                unsafe {
+                    match DynamicLibrary::open(None).unwrap().symbol(s) {
+                        Ok(v) => v,
+                        Err(_) => ptr::null(),
+                    }
+                }
+            });
+
+            gl::load(epoxy::get_proc_addr);
+
             let mut inner_worldmachine = worldmachine.lock().unwrap();
             inner_worldmachine.initialise(editor.clone());
             debug!("initialised worldmachine");

@@ -1,4 +1,3 @@
-use libsex::bindings::*;
 
 #[derive(Clone, Copy)]
 pub struct Colour {

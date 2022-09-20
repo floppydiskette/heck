@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::ptr::null_mut;
-use libsex::bindings::*;
+use glad_gl::gl::*;
 use crate::renderer::{H2eckRenderer, helpers};
 
 #[derive(Clone)]
@@ -21,72 +21,72 @@ impl Shader {
         let frag_source_c = CString::new(frag_source).unwrap();
 
         // create the shaders
-        let vert_shader = unsafe { glCreateShader(GL_VERTEX_SHADER) };
-        let frag_shader = unsafe { glCreateShader(GL_FRAGMENT_SHADER) };
+        let vert_shader = unsafe { CreateShader(VERTEX_SHADER) };
+        let frag_shader = unsafe { CreateShader(FRAGMENT_SHADER) };
 
         // set the source
         unsafe {
-            glShaderSource(vert_shader, 1, &vert_source_c.as_ptr(), null_mut());
-            glShaderSource(frag_shader, 1, &frag_source_c.as_ptr(), null_mut());
+            ShaderSource(vert_shader, 1, &vert_source_c.as_ptr(), null_mut());
+            ShaderSource(frag_shader, 1, &frag_source_c.as_ptr(), null_mut());
         }
 
         // compile the shaders
         unsafe {
-            glCompileShader(vert_shader);
-            glCompileShader(frag_shader);
+            CompileShader(vert_shader);
+            CompileShader(frag_shader);
         }
 
         // check if the shaders compiled
         let mut status = 0;
         unsafe {
-            glGetShaderiv(vert_shader, GL_COMPILE_STATUS, &mut status);
+            GetShaderiv(vert_shader, COMPILE_STATUS, &mut status);
             if status == 0 {
                 let mut len = 255;
-                glGetShaderiv(vert_shader, GL_INFO_LOG_LENGTH, &mut len);
+                GetShaderiv(vert_shader, INFO_LOG_LENGTH, &mut len);
                 let log = vec![0; len as usize + 1];
                 let log_c = CString::from_vec_unchecked(log);
                 let log_p = log_c.into_raw();
-                glGetShaderInfoLog(vert_shader, len, null_mut(), log_p);
+                GetShaderInfoLog(vert_shader, len, null_mut(), log_p);
                 return Err(format!("failed to compile vertex shader: {}", CString::from_raw(log_p).to_string_lossy()));
             }
-            glGetShaderiv(frag_shader, GL_COMPILE_STATUS, &mut status);
+            GetShaderiv(frag_shader, COMPILE_STATUS, &mut status);
             if status == 0 {
                 let mut len = 255;
-                glGetShaderiv(frag_shader, GL_INFO_LOG_LENGTH, &mut len);
+                GetShaderiv(frag_shader, INFO_LOG_LENGTH, &mut len);
                 let log = vec![0; len as usize + 1];
                 let log_c = CString::from_vec_unchecked(log);
                 let log_p = log_c.into_raw();
-                glGetShaderInfoLog(frag_shader, len, null_mut(), log_p);
+                GetShaderInfoLog(frag_shader, len, null_mut(), log_p);
                 return Err(format!("failed to compile fragment shader: {}", CString::from_raw(log_p).to_string_lossy()));
             }
         }
 
         // link the shaders
-        let shader_program = unsafe { glCreateProgram() };
+        let shader_program = unsafe { CreateProgram() };
         unsafe {
-            glAttachShader(shader_program, vert_shader);
-            glAttachShader(shader_program, frag_shader);
-            glLinkProgram(shader_program);
+            AttachShader(shader_program, vert_shader);
+            AttachShader(shader_program, frag_shader);
+            LinkProgram(shader_program);
         }
 
         // check if the shaders linked
         unsafe {
-            glGetProgramiv(shader_program, GL_LINK_STATUS, &mut status);
+            GetProgramiv(shader_program, LINK_STATUS, &mut status);
             if status == 0 {
                 let mut len = 0;
-                glGetProgramiv(shader_program, GL_INFO_LOG_LENGTH, &mut len);
+                GetProgramiv(shader_program, INFO_LOG_LENGTH, &mut len);
                 let log = vec![0; len as usize + 1];
                 let log_c = CString::from_vec_unchecked(log);
                 let log_p = log_c.into_raw();
-                glGetProgramInfoLog(shader_program, len, null_mut(), log_p);
+                GetProgramInfoLog(shader_program, len, null_mut(), log_p);
                 return Err(format!("failed to link shader program: {}", CString::from_raw(log_p).to_string_lossy()));
             }
         }
 
         // clean up
         unsafe {
-            glDeleteShader(vert_shader);
-            glDeleteShader(frag_shader);
+            DeleteShader(vert_shader);
+            DeleteShader(frag_shader);
         }
 
         // add shader to list
