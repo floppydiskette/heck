@@ -4,7 +4,6 @@ use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, Mutex, MutexGuard};
 use gfx_maths::{Quaternion, Vec2, Vec3};
 use gtk::subclass::prelude::ObjectSubclassIsExt;
-use png::DecodingError::Parameter;
 use serde::{Deserialize, Serialize};
 use crate::{Cast, renderer};
 use crate::h2eck_window::editor::Editor;

@@ -39,7 +39,7 @@ impl Texture {
             Ok(())
         } else {
             error!("failed to load texture: {}", name);
-            Err("failed to load texture".to_string())
+            Err(format!("failed to load texture: {}", texture.err().unwrap().to_string()))
         }
     }
 
@@ -199,12 +199,10 @@ impl UiTexture {
 }
 
 fn load_image(file_name: &str) -> Result<Image, String> { // todo: use dds
-    let decoder = png::Decoder::new(std::fs::File::open(file_name).map_err(|e| format!("failed to open file: {}", e))?);
-    let mut reader = decoder.read_info().map_err(|e| format!("failed to read file: {}", e))?;
-    let mut buf = vec![0; reader.output_buffer_size()];
-    let info = reader.next_frame(&mut buf).map_err(|e| format!("failed to read file: {}", e))?;
-    let dimensions = (info.width, info.height);
-    let bytes = &buf[0..info.buffer_size()];
-    let data = bytes.to_vec();
+    let img_data = std::io::BufReader::new(std::fs::File::open(file_name).map_err(|e| format!("Failed to load image: {}", e))?);
+    let img = image::io::Reader::new(img_data).with_guessed_format().map_err(|e| format!("Failed to load image: {}", e))?.decode().map_err(|e| format!("Failed to load image: {}", e))?;
+    let rgba = img.into_rgba8();
+    let dimensions = rgba.dimensions();
+    let data = rgba.to_vec();
     Ok(Image { dimensions, data })
 }
