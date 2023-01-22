@@ -43,7 +43,7 @@ vec3 calculate_light(Light light, Material material, vec2 uv, vec3 normal, vec3 
 
     vec3 reflect_dir = reflect(-light_dir, normal);
 
-    float shininess = texture(material.roughness, uv).r * 256.0;
+    float shininess = 256.0;
     float spec = pow(max(dot(normal, halfway_dir), 0.0), shininess);
 
     return light.intensity * (diff * light.colour + spec * light.colour);

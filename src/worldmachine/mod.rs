@@ -10,7 +10,7 @@ use crate::h2eck_window::editor::Editor;
 use crate::renderer::camera::Camera;
 use crate::renderer::H2eckRenderer;
 use crate::renderer::raycasting::Ray;
-use crate::worldmachine::components::{BoxCollider, COMPONENT_TYPE_BOX_COLLIDER, COMPONENT_TYPE_LIGHT, COMPONENT_TYPE_MESH_RENDERER, COMPONENT_TYPE_TERRAIN, COMPONENT_TYPE_TRANSFORM, Light, MeshRenderer, Terrain, Transform};
+use crate::worldmachine::components::{BoxCollider, COMPONENT_TYPE_BOX_COLLIDER, COMPONENT_TYPE_JUKEBOX, COMPONENT_TYPE_LIGHT, COMPONENT_TYPE_MESH_RENDERER, COMPONENT_TYPE_TERRAIN, COMPONENT_TYPE_TRANSFORM, Jukebox, Light, MeshRenderer, Terrain, Transform};
 use crate::worldmachine::ecs::*;
 use crate::worldmachine::entities::new_ht2_entity;
 
@@ -233,6 +233,9 @@ impl WorldMachine {
             },
             x if x == COMPONENT_TYPE_BOX_COLLIDER.clone() => {
                 Some(BoxCollider::default())
+            },
+            x if x == COMPONENT_TYPE_JUKEBOX.clone() => {
+                Some(Jukebox::default())
             },
             _ => {
                 None

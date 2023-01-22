@@ -46,9 +46,9 @@ impl Texture {
     pub fn new_from_name(name: String, renderer: &mut H2eckRenderer, simple: bool) -> Result<Texture, String> {
         let base_file_name = {
             if !simple {
-                format!("{}/textures/{}_", renderer.data_dir, name)
+                format!("{}/textures/{}/{}_", renderer.data_dir, name.clone(), name)
             } else {
-                name.clone()
+                name
             }
         };
         // substance painter file names

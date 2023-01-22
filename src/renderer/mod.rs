@@ -216,7 +216,7 @@ impl H2eckRenderer {
         Shader::load_shader(self, "basic").expect("failed to load shader");
         Shader::load_shader(self, "terrain").expect("failed to load shader (terrain)");
         Shader::load_shader(self, "viz").expect("failed to load shader (viz)");
-        Texture::load_texture("default", "default/default", self, false).expect("failed to load default texture");
+        Texture::load_texture("default", "default", self, false).expect("failed to load default texture");
         Texture::load_texture("grass1", format!("{}/textures/{}_", self.data_dir,"terrain/grass1").as_str(), self, true).expect("failed to load grass1 texture");
         Texture::load_texture("dirt1", format!("{}/textures/{}_", self.data_dir,"terrain/dirt1").as_str(), self, true).expect("failed to load dirt1 texture");
         Texture::load_texture("rock1", format!("{}/textures/{}_", self.data_dir,"terrain/rock1").as_str(), self, true).expect("failed to load rock1 texture");
