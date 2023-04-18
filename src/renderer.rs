@@ -20,6 +20,7 @@ use crate::helpers::{load_string_from_file, set_shader_if_not_already};
 use crate::light::Light;
 use crate::meshes::{IntermidiaryMesh, Mesh};
 use crate::textures::{IntermidiaryTexture, Texture};
+use crate::worldmachine::WorldMachine;
 
 // TODO: make this configurable at runtime
 pub const BASE_DIR: &str = "../huskyTech2/base";
@@ -139,8 +140,8 @@ pub struct Framebuffers {
 impl ht_renderer {
     pub fn init() -> Result<ht_renderer, String> {
         // some constants we can later change (todo: make these configurable?)
-        let window_width = 1920;
-        let window_height = 1080;
+        let window_width = 1280;
+        let window_height = 720;
         let render_width = 1280;
         let render_height = 720;
 
@@ -480,7 +481,6 @@ impl ht_renderer {
 
     pub fn lock_mouse(&mut self, lock: bool) {
         unsafe {
-            
             {
                 if lock {
                     self.backend.window.lock().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
@@ -730,12 +730,12 @@ impl ht_renderer {
         self.lights = lights;
     }
 
-    pub fn swap_buffers(&mut self) {
+    pub fn swap_buffers(&mut self, wm: &mut WorldMachine) {
         self.setup_pass_two(0);
         self.setup_pass_three();
         /* egui */
 
-        crate::ui::render(self);
+        crate::ui::render(self, wm);
 
         unsafe {
             self.backend.window.lock().unwrap().swap_buffers();

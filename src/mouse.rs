@@ -3,7 +3,7 @@ use gfx_maths::Vec2;
 use glfw::{Action, MouseButton, WindowEvent};
 use crate::ht_renderer;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum MouseButtonState {
     Pressed,
     Released,
@@ -53,7 +53,14 @@ fn mouse_button_callback(button: MouseButton, action: Action) {
                 _ => {}
             }
         }
-        _ => {}
+        Action::Repeat => {
+            match button {
+                MouseButton::Button1 => mouse.buttons[0] = MouseButtonState::Pressed,
+                MouseButton::Button2 => mouse.buttons[1] = MouseButtonState::Pressed,
+                MouseButton::Button3 => mouse.buttons[2] = MouseButtonState::Pressed,
+                _ => {}
+            }
+        }
     }
 }
 
@@ -68,10 +75,11 @@ pub fn get_mouse_button_state(button: u32) -> MouseButtonState {
 }
 
 pub fn reset_mouse_state() {
-    let mut mouse = MOUSE.lock().unwrap();
-    for i in 0..3 {
-        mouse.buttons[i] = MouseButtonState::TakenCareOf;
-    }
+    // don't do this, or else we cannot detect if the mouse is held down
+    //let mut mouse = MOUSE.lock().unwrap();
+    //for i in 0..3 {
+    //    mouse.buttons[i] = MouseButtonState::TakenCareOf;
+    //}
 }
 
 pub fn tick_mouse(event: WindowEvent) {

@@ -54,6 +54,12 @@ impl Camera {
         front.y = 0.0;
         *front.normalize().deref()
     }
+    
+    pub fn get_forward(&self) -> Vec3 {
+        let mut front = Vec3::new(0.0, 0.0, 1.0);
+        front = helpers::rotate_vector_by_quaternion(front, self.rotation);
+        *front.normalize().deref()
+    }
 
     pub fn get_right(&self) -> Vec3 {
         // right vector is first column of view matrix

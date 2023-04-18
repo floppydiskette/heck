@@ -4,10 +4,13 @@ extern crate log;
 extern crate lazy_static;
 
 use std::ops::Deref;
+use std::sync::atomic::Ordering;
 use std::time::Instant;
 use fyrox_sound::context::SoundContext;
 use fyrox_sound::engine::SoundEngine;
+use gfx_maths::{Quaternion, Vec3};
 use crate::keyboard::HTKey;
+use crate::mouse::MouseButtonState;
 use crate::renderer::ht_renderer;
 
 pub mod renderer;
@@ -27,6 +30,8 @@ pub mod shaders;
 pub mod skeletal_animation;
 pub mod optimisations;
 pub mod ui;
+pub mod viewport;
+pub mod ui_defs;
 
 
 #[tokio::main]
@@ -58,8 +63,12 @@ async fn main() {
     pub const DEFAULT_FOV: f32 = 120.0;
     renderer.camera.set_fov(DEFAULT_FOV);
 
+    let mut viewport = viewport::Viewport::init(Vec3::default(), Quaternion::default());
+
     info!("initialised worldmachine");
     let start_time = Instant::now();
+
+    let mut camera_control = false;
 
     let mut last_frame_time = std::time::Instant::now();
     loop {
@@ -72,6 +81,27 @@ async fn main() {
 
         renderer.backend.input_state.lock().unwrap().input.time = Some(start_time.elapsed().as_secs_f64());
         renderer.backend.egui_context.lock().unwrap().begin_frame(renderer.backend.input_state.lock().unwrap().input.take());
+
+        // todo: maybe move this somewhere else?
+
+        let mouse_state = mouse::get_mouse_button_state(1);
+
+        if mouse_state == MouseButtonState::Pressed {
+            renderer.lock_mouse(true);
+            camera_control = true;
+        } else {
+            renderer.lock_mouse(false);
+            camera_control = false;
+        }
+
+        if camera_control {
+            viewport.has_camera_control = true;
+        } else {
+            viewport.has_camera_control = false;
+        }
+
+        viewport.handle_input(&mut renderer, delta);
+
         worldmachine.handle_audio(&renderer, &audio, &scontext);
         worldmachine.render(&mut renderer, None);
         renderer.clear_all_shadow_buffers();
@@ -82,7 +112,7 @@ async fn main() {
             renderer.next_light();
         }
 
-        renderer.swap_buffers();
+        renderer.swap_buffers(&mut worldmachine);
         renderer.backend.window.lock().unwrap().glfw.poll_events();
         keyboard::reset_keyboard_state();
         mouse::reset_mouse_state();
@@ -91,7 +121,7 @@ async fn main() {
             keyboard::tick_keyboard(event.clone());
             mouse::tick_mouse(event);
         }
-        if renderer.manage_window() || keyboard::check_key_released(HTKey::Escape) {
+        if renderer.manage_window() || crate::ui::WANT_QUIT.load(Ordering::Relaxed) {
             return;
         }
     }

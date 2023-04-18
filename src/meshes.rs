@@ -772,10 +772,6 @@ impl Mesh {
                 let pass_c = CString::new("pass").unwrap();
                 let pass_loc = GetUniformLocation(shader.program, pass_c.as_ptr() as *const i8);
                 Uniform1i(pass_loc, pass as i32);
-                // send iteration to shader
-                let pass_c = CString::new("facing_angle").unwrap();
-                let pass_loc = GetUniformLocation(shader.program, pass_c.as_ptr() as *const i8);
-                Uniform1f(pass_loc, *crate::ui::DEBUG_SHADOW_VOLUME_FACE_ANGLE.lock().unwrap());
 
                 // send the light position to the shadow shader
                 let light_pos_c = CString::new("light_pos").unwrap();
