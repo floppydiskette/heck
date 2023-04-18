@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 use gfx_maths::{Quaternion, Vec2, Vec3};
 use serde::{Deserialize, Serialize, Serializer};
 use serde::ser::SerializeStruct;
+use crate::worldmachine::EntityId;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Parameter {
@@ -42,10 +43,10 @@ pub struct Component {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Entity {
     pub name: String,
-    pub uid: u64,
+    pub uid: EntityId,
     pub components: Vec<Component>,
     pub children: Vec<Entity>,
-    pub parent: Option<u64>,
+    pub parent: Option<EntityId>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -101,14 +102,16 @@ impl Entity {
         None
     }
 
-    pub fn set_component_parameter(&mut self, component_type: ComponentType, parameter_name: &str, value: ParameterValue) {
+    pub fn set_component_parameter(&mut self, component_type: ComponentType, parameter_name: &str, value: ParameterValue) -> Option<()> {
         for component in self.components.iter_mut() {
             if component.component_type == component_type {
                 if let Some(parameter) = component.parameters.get_mut(parameter_name) {
                     parameter.value = value.clone();
+                    return Some(());
                 }
             }
         }
+        None
     }
 }
 

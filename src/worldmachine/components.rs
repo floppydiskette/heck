@@ -2,30 +2,37 @@
 
 use std::collections::BTreeMap;
 use gfx_maths::*;
-use crate::renderer::H2eckRenderer;
-use crate::renderer::mesh::Mesh;
-use crate::renderer::shader::Shader;
 use crate::worldmachine::ecs::*;
-use crate::worldmachine::helpers;
 
 lazy_static! {
+    pub static ref COMPONENT_TYPE_PLAYER: ComponentType = ComponentType::create_if_not_exists("Player");
     pub static ref COMPONENT_TYPE_TRANSFORM: ComponentType = ComponentType::create_if_not_exists("Transform");
     pub static ref COMPONENT_TYPE_MESH_RENDERER: ComponentType = ComponentType::create_if_not_exists("MeshRenderer");
     pub static ref COMPONENT_TYPE_TERRAIN: ComponentType = ComponentType::create_if_not_exists("Terrain");
     pub static ref COMPONENT_TYPE_LIGHT: ComponentType = ComponentType::create_if_not_exists("Light");
     pub static ref COMPONENT_TYPE_BOX_COLLIDER: ComponentType = ComponentType::create_if_not_exists("BoxCollider");
     pub static ref COMPONENT_TYPE_JUKEBOX: ComponentType = ComponentType::create_if_not_exists("Jukebox");
+    pub static ref COMPONENT_TYPE_TRIGGER: ComponentType = ComponentType::create_if_not_exists("Trigger");
+
+    pub static ref COMPONENTS_INITIALISED: bool = {
+        register_component_types();
+        true
+    };
 }
 
 pub fn register_component_types() {
     // this is kinda dumb, but in order to get all component types registered, we need to make them all be referenced
+    let _ = COMPONENT_TYPE_PLAYER.clone();
     let _ = COMPONENT_TYPE_TRANSFORM.clone();
     let _ = COMPONENT_TYPE_MESH_RENDERER.clone();
     let _ = COMPONENT_TYPE_TERRAIN.clone();
     let _ = COMPONENT_TYPE_LIGHT.clone();
     let _ = COMPONENT_TYPE_BOX_COLLIDER.clone();
     let _ = COMPONENT_TYPE_JUKEBOX.clone();
+    let _ = COMPONENT_TYPE_TRIGGER.clone();
 }
+
+// player component is defined in src/worldmachine/player.rs
 
 pub struct Transform {}
 
@@ -63,7 +70,7 @@ impl MeshRenderer {
         }
     }
     pub fn default() -> Component {
-        Self::new("ht2".to_string(), "basic".to_string(), "default".to_string())
+        Self::new("ht2".to_string(), "gbuffer".to_string(), "default".to_string())
     }
 }
 
@@ -105,26 +112,6 @@ impl Terrain {
     }
 }
 
-pub struct BoxCollider {}
-
-impl BoxCollider {
-    pub fn new(position: Vec3, size: Vec3) -> Component {
-        let mut parameters = BTreeMap::new();
-        parameters.insert("position".to_string(), Parameter::new("position", ParameterValue::Vec3(position)));
-        parameters.insert("size".to_string(), Parameter::new("size", ParameterValue::Vec3(size)));
-        parameters.insert("visualise".to_string(), Parameter::new("visualise", ParameterValue::Bool(true)));
-
-        Component {
-            name: "BoxCollider".to_string(),
-            parameters,
-            component_type: COMPONENT_TYPE_BOX_COLLIDER.clone(),
-        }
-    }
-    pub fn default() -> Component {
-        Self::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 1.0, 1.0))
-    }
-}
-
 pub struct Jukebox {}
 
 impl Jukebox {
@@ -133,7 +120,7 @@ impl Jukebox {
         parameters.insert("volume".to_string(), Parameter::new("volume", ParameterValue::Float(1.0)));
         parameters.insert("playing".to_string(), Parameter::new("playing", ParameterValue::Bool(false)));
         parameters.insert("track".to_string(), Parameter::new("track", ParameterValue::String("".to_string())));
-        parameters.insert("uuid".to_string(), Parameter::new("uuid", ParameterValue::String(helpers::generate_string_uuid())));
+        parameters.insert("uuid".to_string(), Parameter::new("uuid", ParameterValue::String("".to_string())));
 
         Component {
             name: "Jukebox".to_string(),

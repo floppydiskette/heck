@@ -3,94 +3,96 @@ extern crate log;
 #[macro_use]
 extern crate lazy_static;
 
-use gtk::prelude::*;
-use gtk::{Application, ApplicationWindow, gio, show_about_dialog};
-use gio::prelude::*;
-use gtk::gdk::Display;
-use gtk::glib::clone;
-use crate::h2eck_window::{about_window, h2eckWindow};
+use std::ops::Deref;
+use std::time::Instant;
+use fyrox_sound::context::SoundContext;
+use fyrox_sound::engine::SoundEngine;
+use crate::keyboard::HTKey;
+use crate::renderer::ht_renderer;
 
-pub mod h2eck_window;
 pub mod renderer;
 pub mod worldmachine;
+pub mod camera;
+pub mod textures;
+pub mod meshes;
+pub mod light;
+pub mod helpers;
+pub mod audio;
+pub mod keyboard;
+pub mod mouse;
+pub mod animation;
+pub mod animgraph;
+pub mod common_anim;
+pub mod shaders;
+pub mod skeletal_animation;
+pub mod optimisations;
+pub mod ui;
 
-const APP_ID: &str = "com.realmicrosoft.h2eck";
 
-fn main() {
+#[tokio::main]
+async fn main() {
     // initialise env logger
     env_logger::init();
-    // register resources
-    gio::resources_register_include!("ct.gresource")
-        .expect("failed to register ui resources");
 
-    let app = Application::builder()
-        .application_id(APP_ID)
-        .build();
+    let sengine = SoundEngine::new();
+    let scontext = SoundContext::new();
 
-    app.connect_startup(|app| {
-        let provider = gtk::CssProvider::new();
-        provider.load_from_data(include_bytes!("../assets/styles.css"));
+    sengine.lock().unwrap().add_context(scontext.clone());
 
-        // Add the provider to the default screen
-        gtk::StyleContext::add_provider_for_display(
-            &Display::default().expect("Could not connect to a display."),
-            &provider,
-            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
-        );
+    let mut audio = crate::audio::AudioBackend::new();
+    info!("initialised audio subsystem");
 
-        build_accelerators(app);
-    });
+    info!("initialising h2eck renderer...");
 
-    app.connect_activate(build_ui);
+    let renderer = ht_renderer::init();
+    if let Err(e) = renderer {
+        error!("failed to initialise renderer: {}", e);
+        return;
+    }
+    let mut renderer = renderer.unwrap();
+    renderer.initialise_basic_resources();
+    info!("initialised renderer");
 
-    app.run();
-}
+    let mut worldmachine = worldmachine::WorldMachine::default();
+    worldmachine.initialise();
+    pub const DEFAULT_FOV: f32 = 120.0;
+    renderer.camera.set_fov(DEFAULT_FOV);
 
-fn build_ui(app: &Application) {
-    let window = h2eckWindow::new(app);
+    info!("initialised worldmachine");
+    let start_time = Instant::now();
 
-    build_system_menu(app);
-    build_appwide_actions(app, &window);
+    let mut last_frame_time = std::time::Instant::now();
+    loop {
+        let delta = (last_frame_time.elapsed().as_millis() as f64 / 1000.0) as f32;
+        last_frame_time = Instant::now();
 
-    window.present();
-    window.set_show_menubar(true);
-}
+        // calculate fps based on delta
+        let fps = 1.0 / delta;
+        *crate::ui::FPS.lock().unwrap() = fps;
 
-fn build_system_menu(app: &Application) {
-    let menu_bar = gio::Menu::new();
-    let app_menu = gio::Menu::new();
-    let file_menu = gio::Menu::new();
-    let help_menu = gio::Menu::new();
+        renderer.backend.input_state.lock().unwrap().input.time = Some(start_time.elapsed().as_secs_f64());
+        renderer.backend.egui_context.lock().unwrap().begin_frame(renderer.backend.input_state.lock().unwrap().input.take());
+        worldmachine.handle_audio(&renderer, &audio, &scontext);
+        worldmachine.render(&mut renderer, None);
+        renderer.clear_all_shadow_buffers();
+        let light_count = renderer.lights.len();
+        for i in 0..light_count {
+            worldmachine.render(&mut renderer, Some((1, i)));
+            worldmachine.render(&mut renderer, Some((2, i)));
+            renderer.next_light();
+        }
 
-    app_menu.append(Some("About"), Some("app.about"));
-    app_menu.append(Some("Quit"), Some("app.quit"));
-
-    file_menu.append(Some("Quit"), Some("app.quit"));
-
-    help_menu.append(Some("About"), Some("app.about"));
-
-    menu_bar.append_submenu(Some("File"), &file_menu);
-    menu_bar.append_submenu(Some("Help"), &help_menu);
-
-    app.set_menubar(Some(&menu_bar));
-}
-
-fn build_appwide_actions(app: &Application, window: &h2eckWindow) {
-    let about_action = gio::SimpleAction::new("about", None);
-    // show the about dialog
-    about_action.connect_activate(clone!(@strong window => move |_, _| {
-        let about_window = about_window::AboutWindow::new();
-        about_window.show();
-    }));
-
-    let quit_action = gio::SimpleAction::new("quit", None);
-    quit_action.connect_activate(clone!(@strong app => move |_, _| {
-        app.quit();
-    }));
-
-    app.add_action(&about_action);
-    app.add_action(&quit_action);
-}
-
-fn build_accelerators(app: &Application) {
+        renderer.swap_buffers();
+        renderer.backend.window.lock().unwrap().glfw.poll_events();
+        keyboard::reset_keyboard_state();
+        mouse::reset_mouse_state();
+        for (_, event) in glfw::flush_messages(renderer.backend.events.lock().unwrap().deref()) {
+            egui_glfw_gl::handle_event(event.clone(), &mut renderer.backend.input_state.lock().unwrap());
+            keyboard::tick_keyboard(event.clone());
+            mouse::tick_mouse(event);
+        }
+        if renderer.manage_window() || keyboard::check_key_released(HTKey::Escape) {
+            return;
+        }
+    }
 }

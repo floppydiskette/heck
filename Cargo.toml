@@ -6,7 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-gtk = { version = "0.4", package = "gtk4" }
 gltf = { version = "1.0" }
 serde = { version = "1.0", features = ["derive"] }
 glad-gl = { path = "./glad-gl" }
@@ -21,9 +20,7 @@ env_logger = "0.8.4"
 lazy_static = "1.4.0"
 gl_matrix = "0.0"
 rand = "0.8.5"
-
-[build-dependencies]
-gtk = { version = "0.4", package = "gtk4" }
-
-#[target.'cfg(target_os = "linux")'.dependencies]
-#libsex = { path = "../libsex" }
+egui_glfw_gl = { git = "https://github.com/floppydiskette/egui_glfw_gl" }
+glfw = { version = "0.51.0" } # todo: update once our egui fork is updated to the latest glfw
+fyrox-sound = { version = "0.30.0" }
+tokio = { version = "1", features = ["full"] }
