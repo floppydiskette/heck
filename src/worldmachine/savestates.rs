@@ -32,6 +32,16 @@ pub fn load_state_from_file(wm: &mut WorldMachine, file_path: &str) -> bool {
     for i in 0..wm.world.entities.len() {
         wm.entities_wanting_to_load_things.push(i);
     }
+
+    let mut insp_state = crate::ui_defs::entity_inspector::STATE.lock().unwrap();
+    insp_state.edit_buffer.clear();
+    insp_state.components.clear();
+
+    let mut list_state = crate::ui_defs::entity_list::STATE.lock().unwrap();
+    list_state.entities.clear();
+
+    wm.selected_entity = None;
+
     true
 }
 

@@ -1,11 +1,12 @@
 use std::collections::VecDeque;
 use std::ops::Mul;
+use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use egui_glfw_gl::egui;
 use egui_glfw_gl::egui::{Align, CentralPanel, Frame, Rgba, Separator, SidePanel, TopBottomPanel, Ui};
 use gfx_maths::Vec3;
-use crate::renderer::ht_renderer;
+use crate::renderer::{BASE_DIR, ht_renderer};
 use crate::ui_defs;
 use crate::ui_defs::entity_inspector::InspectorWant;
 use crate::ui_defs::entity_list::EntityListWant;
@@ -13,6 +14,12 @@ use crate::worldmachine::{savestates, WorldMachine};
 
 lazy_static!{
     pub static ref STATE: Arc<Mutex<State>> = Arc::new(Mutex::new(State::default()));
+    pub static ref RENDER_OPTIONS: Arc<Mutex<RenderOptions>> = Arc::new(Mutex::new(RenderOptions {
+        enable_lights: true,
+        enable_shadows: true,
+        enable_visualisers: true,
+        enable_selection_viz: true,
+    }));
 
     pub static ref SHOW_UI: Arc<AtomicBool> = Arc::new(AtomicBool::new(true));
     pub static ref SHOW_DEBUG_LOCATION: Arc<AtomicBool> = Arc::new(AtomicBool::new(true));
@@ -21,6 +28,34 @@ lazy_static!{
     pub static ref DEBUG_LOCATION: Arc<Mutex<Vec3>> = Arc::new(Mutex::new(Vec3::new(0.0, 0.0, 0.0)));
     pub static ref WANT_QUIT: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
     pub static ref WANT_SAVE: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
+
+    pub static ref LOG: Arc<Mutex<DebugLine>> = Arc::new(Mutex::new(DebugLine {
+        string: "".to_string(),
+        repeated: 0,
+    }));
+}
+
+pub struct DebugLine {
+    pub string: String,
+    pub repeated: usize,
+}
+
+impl DebugLine {
+    pub fn log(&mut self, string: &str) {
+        if self.string == string {
+            self.repeated += 1;
+        } else {
+            self.string = string.to_string();
+            self.repeated = 0;
+        }
+    }
+}
+
+pub struct RenderOptions {
+    pub enable_lights: bool,
+    pub enable_shadows: bool,
+    pub enable_visualisers: bool,
+    pub enable_selection_viz: bool,
 }
 
 pub struct State {
@@ -86,6 +121,7 @@ pub fn render(renderer: &mut ht_renderer, worldmachine: &mut WorldMachine) {
         }
         EntityListWant::DeleteEntity => {}
         EntityListWant::AddPrefab => {}
+        EntityListWant::DuplicateEntity => {}
     }
 
     if STATE.lock().unwrap().add_entity {
@@ -107,6 +143,7 @@ pub fn render(renderer: &mut ht_renderer, worldmachine: &mut WorldMachine) {
             EntityListWant::AddEntity => {}
             EntityListWant::DeleteEntity => {}
             EntityListWant::AddPrefab => {}
+            _ => {}
         }
     }
 
@@ -121,6 +158,7 @@ pub fn render(renderer: &mut ht_renderer, worldmachine: &mut WorldMachine) {
                         let mut state = STATE.lock().unwrap();
                         state.open_map = false;
                         savestates::load_state_from_file(worldmachine, &state.map_name);
+                        state.world_name = worldmachine.world.current_map.clone();
                     }
                     if ui.button("cancel").clicked() {
                         let mut state = STATE.lock().unwrap();
@@ -141,6 +179,7 @@ pub fn render(renderer: &mut ht_renderer, worldmachine: &mut WorldMachine) {
                         WANT_SAVE.store(false, Ordering::Relaxed);
                         let mut state = STATE.lock().unwrap();
                         state.save_map = false;
+                        worldmachine.world.current_map = state.world_name.clone();
                         savestates::save_state_to_file(worldmachine, &state.map_name);
                     }
                     if ui.button("cancel").clicked() {
@@ -161,6 +200,11 @@ pub fn render(renderer: &mut ht_renderer, worldmachine: &mut WorldMachine) {
                     if ui.button("compile").clicked() {
                         let mut state = STATE.lock().unwrap();
                         state.compile_map = false;
+                        let old_world_name = worldmachine.world.current_map.clone();
+                        worldmachine.world.current_map = state.world_name.clone();
+                        if worldmachine.world.current_map != old_world_name {
+                            WANT_SAVE.store(true, Ordering::Relaxed);
+                        }
                         savestates::compile(worldmachine, &state.world_name);
                     }
                     if ui.button("cancel").clicked() {
@@ -196,37 +240,102 @@ pub fn render(renderer: &mut ht_renderer, worldmachine: &mut WorldMachine) {
 
         status.push_str(" | ");
 
+        status.push_str(&{
+            let state = STATE.lock().unwrap();
+            if state.world_name.is_empty() {
+                "no world name".to_string()
+            } else {
+                state.world_name.to_string()
+            }
+        });
+
+        status.push_str(" | ");
+
+        status.push_str(&{
+            let log = LOG.lock().unwrap();
+            if log.repeated > 0 {
+                format!("{} ({})", log.string, log.repeated)
+            } else {
+                log.string.to_string()
+            }
+        });
+
         ui.label(status);
 
-        ui.menu_button("File", |ui| {
-            {
-                let open = ui.button("open");
-                if open.clicked() {
-                    let mut state = STATE.lock().unwrap();
-                    state.open_map = true;
+        ui.horizontal(|ui| {
+            ui.menu_button("file", |ui| {
+                {
+                    let open = ui.button("open");
+                    if open.clicked() {
+                        let mut state = STATE.lock().unwrap();
+                        state.open_map = true;
+                    }
                 }
-            }
-            ui.separator();
-            {
-                let open = ui.button("save");
-                if open.clicked() {
-                    let mut state = STATE.lock().unwrap();
-                    state.save_map = true;
+                ui.separator();
+                {
+                    let open = ui.button("save");
+                    if open.clicked() {
+                        let mut state = STATE.lock().unwrap();
+                        state.save_map = true;
+                    }
                 }
-            }
-            ui.separator();
-            {
-                let open = ui.button("compile");
-                if open.clicked() {
-                    let mut state = STATE.lock().unwrap();
-                    state.compile_map = true;
+                ui.separator();
+                {
+                    let open = ui.button("compile");
+                    if open.clicked() {
+                        let mut state = STATE.lock().unwrap();
+                        state.compile_map = true;
+                    }
                 }
-            }
-            ui.separator();
-            {
-                let quit = ui.button("quit");
-                if quit.clicked() {
-                    WANT_QUIT.store(true, Ordering::Relaxed);
+                {
+                    let open = ui.button("quick compile and test");
+                    if open.clicked() {
+                        let mut state = STATE.lock().unwrap();
+                        if !state.world_name.is_empty() {
+                            savestates::compile(worldmachine, &state.world_name);
+                            // spawn child process to run the game
+                            let _child = Command::new("cargo")
+                                .arg("run")
+                                .arg("--release")
+                                .arg("--")
+                                .arg("--skip-intro")
+                                .arg("--level")
+                                .arg(&state.world_name)
+                                .current_dir(format!("{}/..", BASE_DIR))
+                                .spawn()
+                                .expect("failed to execute child");
+                        } else {
+                            LOG.lock().unwrap().log("cannot quick compile: no world name set!");
+                        }
+                    }
+                }
+                ui.separator();
+                {
+                    let quit = ui.button("quit");
+                    if quit.clicked() {
+                        WANT_QUIT.store(true, Ordering::Relaxed);
+                    }
+                }
+            });
+
+            ui.menu_button("view", |ui| {
+                ui.checkbox(&mut RENDER_OPTIONS.lock().unwrap().enable_lights, "lights");
+                ui.separator();
+                ui.checkbox(&mut RENDER_OPTIONS.lock().unwrap().enable_shadows, "shadows");
+                ui.separator();
+                ui.checkbox(&mut RENDER_OPTIONS.lock().unwrap().enable_visualisers, "visualisers");
+                ui.separator();
+                ui.checkbox(&mut RENDER_OPTIONS.lock().unwrap().enable_selection_viz, "show selection");
+            });
+
+            if ui.button("quick save").clicked() {
+                if !STATE.lock().unwrap().map_name.is_empty() {
+                    let state = STATE.lock().unwrap();
+                    savestates::save_state_to_file(worldmachine, &state.map_name);
+                    WANT_SAVE.store(false, Ordering::Relaxed);
+                    LOG.lock().unwrap().log("quick saved!");
+                } else {
+                    LOG.lock().unwrap().log("cannot quick save: no filename set!");
                 }
             }
         });

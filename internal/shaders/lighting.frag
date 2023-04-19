@@ -35,6 +35,11 @@ uniform Light u_lights[MAX_LIGHTS];
 uniform int u_light_count;
 uniform float t;
 
+uniform int use_lighting;
+uniform int use_shadows;
+uniform int show_viz_1;
+uniform int show_viz_2;
+
 uniform vec3 u_camera_pos;
 
 vec3 calculate_ambient(float strength, vec3 colour) {
@@ -106,26 +111,35 @@ void main() {
 
     // calculate lights (point lights)
     vec3 result = vec3(0.0, 0.0, 0.0);
-    for (int i = 0; i < u_light_count; i++) {
-        ivec4 shadow = texture(shadow_mask, uv);
-        // check b comp if greater than 64
-        // check g comp if greater than 32
-        // check r comp otherwise
-        bool lit = true;
-        if (i >= 64) {
-            int mask = 1 << (i - 64);
-            lit = (shadow.b & mask) == 0;
-        } else if (i >= 32) {
-            int mask = 1 << (i - 32);
-            lit = (shadow.g & mask) == 0;
-        } else if (i >= 0) {
-            int mask = 1 << i;
-            lit = (shadow.r & mask) == 0;
-        }
+    if (use_lighting == 1) {
+        for (int i = 0; i < u_light_count; i++) {
+            ivec4 shadow = texture(shadow_mask, uv);
+            // check b comp if greater than 64
+            // check g comp if greater than 32
+            // check r comp otherwise
+            bool lit = true;
+            if (use_shadows == 1) {
+                if (i >= 64) {
+                    int mask = 1 << (i - 64);
+                    lit = (shadow.b & mask) == 0;
+                } else if (i >= 32) {
+                    int mask = 1 << (i - 32);
+                    lit = (shadow.g & mask) == 0;
+                } else if (i >= 0) {
+                    int mask = 1 << i;
+                    lit = (shadow.r & mask) == 0;
+                }
+            } else {
+                lit = false;
+            }
 
-        if (!lit) {
-            result += calculate_light(u_lights[i], albedo, spec, uv, normal, frag_pos, view_dir, ambient);
+            if (!lit) {
+                result += calculate_light(u_lights[i], albedo, spec, uv, normal, frag_pos, view_dir, ambient);
+            }
         }
+    } else {
+        result = vec3(1.0, 1.0, 1.0);
+        ambient = vec3(0.0, 0.0, 0.0);
     }
 
     int viz_mask = texture(viz_mask, uv).r;
@@ -135,8 +149,12 @@ void main() {
         final_colour *= vec3(pow(ssao(uv, frag_pos), 1.0));
     }
 
-    if (viz_mask != 0) {
-        final_colour = vec3(0.0, 0.1 * sin(t * 10.0), 0.0) + albedo;
+    if (viz_mask == 1 && show_viz_1 == 1) {
+        final_colour = vec3(0.0, 0.6 * sin(t * 10.0), 0.0) + albedo;
+    }
+
+    if (viz_mask == 2 && show_viz_2 == 1) {
+        final_colour = vec3(0.0, 0.0, 0.6 * sin((t + 1.0) * 10.0)) + albedo;
     }
 
     if (unlit > 0.5) {

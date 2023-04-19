@@ -15,6 +15,7 @@ pub enum EntityListWant {
     AddEntity,
     AddPrefab,
     DeleteEntity,
+    DuplicateEntity,
 }
 
 lazy_static!{
@@ -48,6 +49,9 @@ pub fn entity_list(ui: &mut Ui, wm: &mut WorldMachine, want: &mut EntityListWant
         if ui.button("delete entity").clicked() {
             *want = EntityListWant::DeleteEntity;
         }
+        if ui.button("duplicate entity").clicked() {
+            *want = EntityListWant::DuplicateEntity;
+        }
     });
 
     ui.separator();
@@ -59,6 +63,7 @@ pub fn entity_list(ui: &mut Ui, wm: &mut WorldMachine, want: &mut EntityListWant
                 let mut state = STATE.lock().unwrap();
                 let mut found = Vec::new();
                 let mut to_delete = Vec::new();
+                let mut to_add = Vec::new();
                 let entity_list = &mut wm.world.entities;
                 for entity in entity_list {
                     found.push(entity.uid);
@@ -67,10 +72,17 @@ pub fn entity_list(ui: &mut Ui, wm: &mut WorldMachine, want: &mut EntityListWant
                         state.eids.push(entity.uid);
                     }
                     let name = state.entities.get(&entity.uid).unwrap().1.clone();
-                    let check = ui.checkbox(&mut state.entities.get_mut(&entity.uid).unwrap().0, name);
+                    let check = ui.checkbox(&mut state.entities.get_mut(&entity.uid).unwrap().0, name.clone());
 
                     if *want == EntityListWant::DeleteEntity && state.entities.get(&entity.uid).unwrap().0 {
                         to_delete.push(entity.uid);
+                    } else if *want == EntityListWant::DuplicateEntity && state.entities.get(&entity.uid).unwrap().0 {
+                        let mut new_entity = Entity::new(&name);
+                        let components = entity.components.clone();
+                        for component in components {
+                            new_entity.add_component(component);
+                        }
+                        to_add.push(new_entity);
                     }
                 }
                 for eid in state.eids.clone().iter() {
@@ -85,6 +97,10 @@ pub fn entity_list(ui: &mut Ui, wm: &mut WorldMachine, want: &mut EntityListWant
                     wm.world.entities.retain(|x| x.uid != eid);
                     state.entities.remove(&eid);
                     state.eids.retain(|x| x != &eid);
+                }
+                for new_entity in to_add {
+                    WANT_SAVE.store(true, Ordering::Relaxed);
+                    wm.world.entities.push(new_entity);
                 }
             });
         });

@@ -20,6 +20,7 @@ use crate::helpers::{load_string_from_file, set_shader_if_not_already};
 use crate::light::Light;
 use crate::meshes::{IntermidiaryMesh, Mesh};
 use crate::textures::{IntermidiaryTexture, Texture};
+use crate::ui::{LOG, RENDER_OPTIONS};
 use crate::worldmachine::WorldMachine;
 
 // TODO: make this configurable at runtime
@@ -545,8 +546,10 @@ impl ht_renderer {
                 let final_texture = Texture::load_from_intermidiary(final_texture)?;
                 self.textures.insert(name.to_string(), final_texture);
                 self.loading_meshes.remove(name);
+                LOG.lock().unwrap().log("texture loaded");
                 return Ok(true)
             } else {
+                LOG.lock().unwrap().log("waiting for texture to load");
                 return Ok(false)
             }
         }
@@ -579,8 +582,10 @@ impl ht_renderer {
                 let final_mesh = Mesh::load_from_intermidiary(final_mesh, self)?;
                 self.meshes.insert(name.to_string(), final_mesh);
                 self.loading_meshes.remove(name);
+                LOG.lock().unwrap().log("mesh loaded");
                 return Ok(true);
             } else {
+                LOG.lock().unwrap().log("waiting for mesh to load");
                 return Ok(false);
             }
         }
@@ -993,6 +998,22 @@ impl ht_renderer {
             let disable_ao_c = CString::new("disable_ao").unwrap();
             let disable_ao_loc = GetUniformLocation(lighting_shader.program, disable_ao_c.as_ptr());
             Uniform1i(disable_ao_loc, disable_ao);
+
+            let use_lighting_c = CString::new("use_lighting").unwrap();
+            let use_lighting_loc = GetUniformLocation(lighting_shader.program, use_lighting_c.as_ptr());
+            Uniform1i(use_lighting_loc, RENDER_OPTIONS.lock().unwrap().enable_lights as i32);
+
+            let use_shadows_c = CString::new("use_shadows").unwrap();
+            let use_shadows_loc = GetUniformLocation(lighting_shader.program, use_shadows_c.as_ptr());
+            Uniform1i(use_shadows_loc, RENDER_OPTIONS.lock().unwrap().enable_shadows as i32);
+
+            let show_viz_1_c = CString::new("show_viz_1").unwrap();
+            let show_viz_1_loc = GetUniformLocation(lighting_shader.program, show_viz_1_c.as_ptr());
+            Uniform1i(show_viz_1_loc, RENDER_OPTIONS.lock().unwrap().enable_selection_viz as i32);
+
+            let show_viz_2_c = CString::new("show_viz_2").unwrap();
+            let show_viz_2_loc = GetUniformLocation(lighting_shader.program, show_viz_2_c.as_ptr());
+            Uniform1i(show_viz_2_loc, RENDER_OPTIONS.lock().unwrap().enable_visualisers as i32);
 
             // draw the quad
             BindVertexArray(self.backend.framebuffers.screenquad_vao as GLuint);

@@ -294,10 +294,59 @@ pub fn render_component(ui: &mut Ui, entity: &mut Entity, component: usize, stat
                 let old_intensity = intensity.clone();
 
                 ui.horizontal(|ui| {
-                    ui.label("scale");
+                    ui.label("intensity");
                     ui.add(egui::DragValue::new(intensity).speed(0.1));
                 });
                 if intensity != &old_intensity {
+                    WANT_SAVE.store(true, Ordering::Relaxed);
+                }
+            }
+            x if x == COMPONENT_TYPE_BOX_COLLIDER.clone() => {
+                let position = component.parameters.get_mut("position").unwrap();
+                let position = match &mut position.value {
+                    ParameterValue::Vec3(v) => v,
+                    _ => panic!("invalid parameter type"),
+                };
+                let old_positon = position.clone();
+                ui.horizontal(|ui| {
+                    ui.label("position");
+                    ui.add(egui::DragValue::new(&mut position.x).speed(0.1));
+                    ui.add(egui::DragValue::new(&mut position.y).speed(0.1));
+                    ui.add(egui::DragValue::new(&mut position.z).speed(0.1));
+                });
+                if position != &old_positon {
+                    WANT_SAVE.store(true, Ordering::Relaxed);
+                }
+
+                let scale = component.parameters.get_mut("scale").unwrap();
+                let scale = match &mut scale.value {
+                    ParameterValue::Vec3(v) => v,
+                    _ => panic!("invalid parameter type"),
+                };
+                let old_scale = scale.clone();
+
+                ui.horizontal(|ui| {
+                    ui.label("scale");
+                    ui.add(egui::DragValue::new(&mut scale.x).speed(0.1));
+                    ui.add(egui::DragValue::new(&mut scale.y).speed(0.1));
+                    ui.add(egui::DragValue::new(&mut scale.z).speed(0.1));
+                });
+                if scale != &old_scale {
+                    WANT_SAVE.store(true, Ordering::Relaxed);
+                }
+
+                let visualise = component.parameters.get_mut("visualise").unwrap();
+                let visualise = match &mut visualise.value {
+                    ParameterValue::Bool(v) => v,
+                    _ => panic!("invalid parameter type"),
+                };
+                let old_visualise = visualise.clone();
+
+                ui.horizontal(|ui| {
+                    ui.label("visualise");
+                    ui.checkbox(visualise, "");
+                });
+                if visualise != &old_visualise {
                     WANT_SAVE.store(true, Ordering::Relaxed);
                 }
             }

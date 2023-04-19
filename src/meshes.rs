@@ -622,25 +622,30 @@ impl Mesh {
     pub fn render(&mut self, renderer: &mut ht_renderer, texture: Option<&Texture>, animations_weights: Option<Vec<(String, f64)>>, shadow_pass: Option<(u8, usize)>) {
         if let Some(shadow_pass) = shadow_pass {
             renderer.setup_shadow_pass(shadow_pass.0);
-            self.render_inner(renderer, texture, animations_weights, Some(shadow_pass), false);
+            self.render_inner(renderer, texture, animations_weights, Some(shadow_pass), None);
         } else {
-            self.render_inner(renderer, texture, animations_weights, None, false);
+            self.render_inner(renderer, texture, animations_weights, None, None);
         }
     }
 
-    pub fn render_viz(&mut self, renderer: &mut ht_renderer, texture: Option<&Texture>, animations_weights: Option<Vec<(String, f64)>>, shadow_pass: Option<(u8, usize)>) {
+    pub fn render_viz(&mut self, renderer: &mut ht_renderer, texture: Option<&Texture>, animations_weights: Option<Vec<(String, f64)>>, shadow_pass: Option<(u8, usize)>, viz: i32) {
         if let Some(shadow_pass) = shadow_pass {
             renderer.setup_shadow_pass(shadow_pass.0);
-            self.render_inner(renderer, texture, animations_weights, Some(shadow_pass), true);
+            self.render_inner(renderer, texture, animations_weights, Some(shadow_pass), Some(viz));
         } else {
-            self.render_inner(renderer, texture, animations_weights, None, true);
+            self.render_inner(renderer, texture, animations_weights, None, Some(viz));
         }
     }
 
-    fn render_inner(&mut self, renderer: &mut ht_renderer, texture: Option<&Texture>, animations_weights: Option<Vec<(String, f64)>>, shadow_pass: Option<(u8, usize)>, viz: bool) {
+    fn render_inner(&mut self, renderer: &mut ht_renderer, texture: Option<&Texture>, animations_weights: Option<Vec<(String, f64)>>, shadow_pass: Option<(u8, usize)>, viz: Option<i32>) {
+        if let Some(viz_type) = viz {
+            if viz_type == 2 && shadow_pass.is_some() {
+                return;
+            }
+        }
         // load the shader
         let gbuffer_shader = if shadow_pass.is_none() {
-            if viz {
+            if viz.is_some() {
                 *renderer.shaders.get("viz").unwrap()
             } else {
                 *renderer.shaders.get("gbuffer_anim").unwrap()
@@ -809,11 +814,18 @@ impl Mesh {
                 }
             }
 
+            if let Some(viz_type) = viz {
+                let type_c = CString::new("type").unwrap();
+                let type_loc = GetUniformLocation(shader.program, type_c.as_ptr() as *const i8);
+                Uniform1i(type_loc, viz_type);
+            }
+
             let cull_face = IsEnabled(CULL_FACE);
 
-            if viz {
+            if viz.is_some() {
                 DepthFunc(LEQUAL);
                 Disable(CULL_FACE);
+                DepthMask(FALSE);
             }
 
             // REMOVE
@@ -821,10 +833,11 @@ impl Mesh {
                 DrawElements(TRIANGLES, self.num_indices as GLsizei, UNSIGNED_INT, null());
             //}
 
-            if viz {
+            if viz.is_some() {
                 if cull_face == TRUE {
                     Enable(CULL_FACE);
                 }
+                DepthMask(TRUE);
             }
 
             let care_about_animation_c = CString::new("care_about_animation").unwrap();

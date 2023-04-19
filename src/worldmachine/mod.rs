@@ -31,6 +31,7 @@ pub struct World {
     pub entities: Vec<Entity>,
     pub systems: Vec<System>,
     eid_manager: EntityId,
+    pub current_map: String,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -58,6 +59,7 @@ impl Clone for World {
             entities,
             systems,
             eid_manager: 0,
+            current_map: "".to_string(),
         }
     }
 }
@@ -70,7 +72,6 @@ pub struct WorldMachine {
     pub selected_entity: Option<EntityId>,
     // index
     lights_changed: bool,
-    current_map: String,
 }
 
 impl Default for WorldMachine {
@@ -79,6 +80,7 @@ impl Default for WorldMachine {
             entities: Vec::new(),
             systems: Vec::new(),
             eid_manager: 0,
+            current_map: "".to_string(),
         };
         Self {
             world,
@@ -87,7 +89,6 @@ impl Default for WorldMachine {
             entities_wanting_to_load_things: Vec::new(),
             selected_entity: None,
             lights_changed: true,
-            current_map: "".to_string(),
         }
     }
 }
@@ -147,7 +148,7 @@ impl WorldMachine {
             self.world.entities.push(entity_new);
         }
 
-        self.current_map = map_name.to_string();
+        self.world.current_map = map_name.to_string();
 
         // initialise entities
         self.initialise_entities();
@@ -422,7 +423,7 @@ impl WorldMachine {
                                         continue;
                                     }
                                 };
-                                mesh.scale += scale;
+                                mesh.scale *= scale;
                             }
                         }
 
@@ -439,7 +440,7 @@ impl WorldMachine {
 
                         if let Some(viz) = self.selected_entity {
                             if viz == entity.uid {
-                                mesh.render_viz(renderer, Some(&texture), anim_weights, shadow_pass);
+                                mesh.render_viz(renderer, Some(&texture), anim_weights, shadow_pass, 1);
                             }
                         }
 
@@ -502,7 +503,7 @@ impl WorldMachine {
 
                         mesh.scale += Vec3::new(0.1, 0.1, 0.1);
 
-                        mesh.render_viz(renderer, None, None, shadow_pass);
+                        mesh.render_viz(renderer, None, None, shadow_pass, 2);
                     }
                 }
             }
@@ -570,7 +571,11 @@ impl WorldMachine {
                             }
                         };
 
-                        mesh.render_viz(renderer, None, None, shadow_pass);
+                        // move the position back by scale to account for how physics works
+                        mesh.position.x -= mesh.scale.x / 4.0;
+                        mesh.position.z += mesh.scale.z / 4.0;
+
+                        mesh.render_viz(renderer, None, None, shadow_pass, 2);
                     }
                 }
             }

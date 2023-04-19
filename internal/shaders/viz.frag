@@ -13,6 +13,8 @@ uniform sampler2D normalmap;
 uniform float opacity = 1.0;
 uniform bool unlit = false;
 
+uniform int type;
+
 void main() {
-    fc = ivec4(1, 1, 1, 1);
+    fc = ivec4(type, 1, 1, 1);
 }

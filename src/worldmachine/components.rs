@@ -104,7 +104,7 @@ impl BoxCollider {
         Component {
             name: "BoxCollider".to_string(),
             parameters,
-            component_type: COMPONENT_TYPE_LIGHT.clone(),
+            component_type: COMPONENT_TYPE_BOX_COLLIDER.clone(),
         }
     }
     pub fn default() -> Component {
@@ -125,7 +125,7 @@ impl Trigger {
         Component {
             name: "Trigger".to_string(),
             parameters,
-            component_type: COMPONENT_TYPE_LIGHT.clone(),
+            component_type: COMPONENT_TYPE_TRIGGER.clone(),
         }
     }
     pub fn default() -> Component {
