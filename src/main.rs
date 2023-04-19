@@ -12,6 +12,7 @@ use gfx_maths::{Quaternion, Vec3};
 use crate::keyboard::HTKey;
 use crate::mouse::MouseButtonState;
 use crate::renderer::ht_renderer;
+use crate::ui::RENDER_OPTIONS;
 
 pub mod renderer;
 pub mod worldmachine;
@@ -106,10 +107,12 @@ async fn main() {
         worldmachine.render(&mut renderer, None);
         renderer.clear_all_shadow_buffers();
         let light_count = renderer.lights.len();
-        for i in 0..light_count {
-            worldmachine.render(&mut renderer, Some((1, i)));
-            worldmachine.render(&mut renderer, Some((2, i)));
-            renderer.next_light();
+        if RENDER_OPTIONS.lock().unwrap().enable_shadows {
+            for i in 0..light_count {
+                worldmachine.render(&mut renderer, Some((1, i)));
+                worldmachine.render(&mut renderer, Some((2, i)));
+                renderer.next_light();
+            }
         }
 
         renderer.swap_buffers(&mut worldmachine, delta);

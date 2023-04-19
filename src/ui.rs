@@ -18,7 +18,7 @@ lazy_static!{
         enable_lights: true,
         enable_shadows: true,
         enable_visualisers: true,
-        enable_selection_viz: true,
+        enable_selection_viz: false,
     }));
 
     pub static ref SHOW_UI: Arc<AtomicBool> = Arc::new(AtomicBool::new(true));
