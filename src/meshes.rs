@@ -10,7 +10,7 @@ use gfx_maths::*;
 use gl_matrix::vec3::{dot, multiply, normalize, subtract};
 use gl_matrix::vec4::add;
 use glad_gl::gl::*;
-use crate::helpers::{calculate_model_matrix, calculate_normal_matrix, set_shader_if_not_already};
+use crate::helpers::{calculate_model_matrix, set_shader_if_not_already};
 use crate::ht_renderer;
 use crate::renderer::MAX_LIGHTS;
 use crate::skeletal_animation::{SkeletalAnimation, SkeletalAnimations};
@@ -622,15 +622,30 @@ impl Mesh {
     pub fn render(&mut self, renderer: &mut ht_renderer, texture: Option<&Texture>, animations_weights: Option<Vec<(String, f64)>>, shadow_pass: Option<(u8, usize)>) {
         if let Some(shadow_pass) = shadow_pass {
             renderer.setup_shadow_pass(shadow_pass.0);
-            self.render_inner(renderer, texture, animations_weights, Some(shadow_pass));
+            self.render_inner(renderer, texture, animations_weights, Some(shadow_pass), false);
         } else {
-            self.render_inner(renderer, texture, animations_weights, None);
+            self.render_inner(renderer, texture, animations_weights, None, false);
         }
     }
 
-    fn render_inner(&mut self, renderer: &mut ht_renderer, texture: Option<&Texture>, animations_weights: Option<Vec<(String, f64)>>, shadow_pass: Option<(u8, usize)>) {
+    pub fn render_viz(&mut self, renderer: &mut ht_renderer, texture: Option<&Texture>, animations_weights: Option<Vec<(String, f64)>>, shadow_pass: Option<(u8, usize)>) {
+        if let Some(shadow_pass) = shadow_pass {
+            renderer.setup_shadow_pass(shadow_pass.0);
+            self.render_inner(renderer, texture, animations_weights, Some(shadow_pass), true);
+        } else {
+            self.render_inner(renderer, texture, animations_weights, None, true);
+        }
+    }
+
+    fn render_inner(&mut self, renderer: &mut ht_renderer, texture: Option<&Texture>, animations_weights: Option<Vec<(String, f64)>>, shadow_pass: Option<(u8, usize)>, viz: bool) {
         // load the shader
-        let gbuffer_shader = if shadow_pass.is_none() { *renderer.shaders.get("gbuffer_anim").unwrap() } else if shadow_pass.unwrap().0 == 1 {
+        let gbuffer_shader = if shadow_pass.is_none() {
+            if viz {
+                *renderer.shaders.get("viz").unwrap()
+            } else {
+                *renderer.shaders.get("gbuffer_anim").unwrap()
+            }
+        } else if shadow_pass.unwrap().0 == 1 {
             *renderer.shaders.get("shadow").unwrap()
         } else {
             *renderer.shaders.get("shadow_mask").unwrap()
@@ -643,8 +658,6 @@ impl Mesh {
             BindVertexArray(self.vao);
             if let Some(texture) = texture {
                 if shadow_pass.is_none() {
-                    let gbuffer_shader = *renderer.shaders.get("gbuffer_anim").unwrap();
-                    set_shader_if_not_already(renderer, gbuffer_shader);
                     shader = renderer.backend.shaders.as_mut().unwrap()[gbuffer_shader].clone();
                     // send the material struct to the shader
                     let material = texture.material;
@@ -732,9 +745,6 @@ impl Mesh {
             // calculate the mvp matrix
             let mvp = camera_projection * camera_view * model_matrix;
 
-            // calculate the normal matrix
-            let normal_matrix = calculate_normal_matrix(model_matrix, camera_view);
-
             // send the mvp matrix to the shader
             let mvp_c = CString::new("u_mvp").unwrap();
             let mvp_loc = GetUniformLocation(shader.program, mvp_c.as_ptr());
@@ -753,11 +763,6 @@ impl Mesh {
             let model_c = CString::new("u_model").unwrap();
             let model_loc = GetUniformLocation(shader.program, model_c.as_ptr());
             UniformMatrix4fv(model_loc, 1, FALSE as GLboolean, model_matrix.as_ptr());
-
-            // send the normal matrix to the shader
-            let normal_c = CString::new("u_normal_matrix").unwrap();
-            let normal_loc = GetUniformLocation(shader.program, normal_c.as_ptr());
-            UniformMatrix3fv(normal_loc, 1, FALSE as GLboolean, normal_matrix.as_ptr());
 
             // send the camera position to the shader
             let camera_pos_c = CString::new("u_camera_pos").unwrap();
@@ -804,10 +809,23 @@ impl Mesh {
                 }
             }
 
+            let cull_face = IsEnabled(CULL_FACE);
+
+            if viz {
+                DepthFunc(LEQUAL);
+                Disable(CULL_FACE);
+            }
+
             // REMOVE
            // if (self.animations.is_none() && shadow_pass.is_some()) || shadow_pass.is_none() {
                 DrawElements(TRIANGLES, self.num_indices as GLsizei, UNSIGNED_INT, null());
             //}
+
+            if viz {
+                if cull_face == TRUE {
+                    Enable(CULL_FACE);
+                }
+            }
 
             let care_about_animation_c = CString::new("care_about_animation").unwrap();
             let care_about_animation_loc = GetUniformLocation(shader.program, care_about_animation_c.as_ptr());
@@ -841,18 +859,10 @@ impl Mesh {
             // calculate the mvp matrix
             let mvp = camera_projection * camera_view * model_matrix;
 
-            // calculate the normal matrix
-            let normal_matrix = calculate_normal_matrix(model_matrix, camera_view);
-
             // send the mvp matrix to the shader
             let mvp_c = CString::new("u_mvp").unwrap();
             let mvp_loc = GetUniformLocation(shader.program, mvp_c.as_ptr());
             UniformMatrix4fv(mvp_loc, 1, FALSE as GLboolean, mvp.as_ptr());
-
-            // send the normal matrix to the shader
-            let normal_c = CString::new("u_normal_matrix").unwrap();
-            let normal_loc = GetUniformLocation(shader.program, normal_c.as_ptr());
-            UniformMatrix3fv(normal_loc, 1, FALSE as GLboolean, normal_matrix.as_ptr());
 
             // send the model matrix to the shader
             /*let model_c = CString::new("u_model").unwrap();

@@ -25,7 +25,6 @@ pub fn register_component_types() {
     let _ = COMPONENT_TYPE_PLAYER.clone();
     let _ = COMPONENT_TYPE_TRANSFORM.clone();
     let _ = COMPONENT_TYPE_MESH_RENDERER.clone();
-    let _ = COMPONENT_TYPE_TERRAIN.clone();
     let _ = COMPONENT_TYPE_LIGHT.clone();
     let _ = COMPONENT_TYPE_BOX_COLLIDER.clone();
     let _ = COMPONENT_TYPE_JUKEBOX.clone();
@@ -57,10 +56,9 @@ impl Transform {
 pub struct MeshRenderer {}
 
 impl MeshRenderer {
-    pub fn new(mesh: String, shader: String, texture: String) -> Component {
+    pub fn new(mesh: String, texture: String) -> Component {
         let mut parameters = BTreeMap::new();
         parameters.insert("mesh".to_string(), Parameter::new("mesh", ParameterValue::String(mesh)));
-        parameters.insert("shader".to_string(), Parameter::new("shader", ParameterValue::String(shader)));
         parameters.insert("texture".to_string(), Parameter::new("texture", ParameterValue::String(texture)));
 
         Component {
@@ -70,7 +68,7 @@ impl MeshRenderer {
         }
     }
     pub fn default() -> Component {
-        Self::new("ht2".to_string(), "gbuffer".to_string(), "default".to_string())
+        Self::new("ht2".to_string(),  "default".to_string())
     }
 }
 
@@ -94,21 +92,44 @@ impl Light {
     }
 }
 
-pub struct Terrain {}
+pub struct BoxCollider {}
 
-impl Terrain {
-    pub fn new(name: &str) -> Component {
+impl BoxCollider {
+    pub fn new(position: Vec3, scale: Vec3) -> Component {
         let mut parameters = BTreeMap::new();
-        parameters.insert("name".to_string(), Parameter::new("name", ParameterValue::String(name.to_string())));
+        parameters.insert("position".to_string(), Parameter::new("position", ParameterValue::Vec3(position)));
+        parameters.insert("scale".to_string(), Parameter::new("scale", ParameterValue::Vec3(scale)));
+        parameters.insert("visualise".to_string(), Parameter::new("visualise", ParameterValue::Bool(false)));
 
         Component {
-            name: "Terrain".to_string(),
+            name: "BoxCollider".to_string(),
             parameters,
-            component_type: COMPONENT_TYPE_TERRAIN.clone(),
+            component_type: COMPONENT_TYPE_LIGHT.clone(),
         }
     }
     pub fn default() -> Component {
-        Self::new("default")
+        Self::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 1.0, 1.0))
+    }
+}
+
+pub struct Trigger {}
+
+impl Trigger {
+    pub fn new(position: Vec3, scale: Vec3, key: String) -> Component {
+        let mut parameters = BTreeMap::new();
+        parameters.insert("position".to_string(), Parameter::new("position", ParameterValue::Vec3(position)));
+        parameters.insert("scale".to_string(), Parameter::new("scale", ParameterValue::Vec3(scale)));
+        parameters.insert("key".to_string(), Parameter::new("key", ParameterValue::String(key)));
+        parameters.insert("visualise".to_string(), Parameter::new("visualise", ParameterValue::Bool(false)));
+
+        Component {
+            name: "Trigger".to_string(),
+            parameters,
+            component_type: COMPONENT_TYPE_LIGHT.clone(),
+        }
+    }
+    pub fn default() -> Component {
+        Self::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 1.0, 1.0), "".to_string())
     }
 }
 

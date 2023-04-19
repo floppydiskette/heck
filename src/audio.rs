@@ -8,6 +8,7 @@ use fyrox_sound::pool::Handle;
 use fyrox_sound::source::{SoundSource, SoundSourceBuilder};
 use fyrox_sound::source::Status::Playing;
 use gfx_maths::Vec3;
+use crate::renderer::BASE_DIR;
 
 pub struct AudioBackend {
     sounds: Arc<Mutex<HashMap<String, SoundBufferResource>>>,
@@ -25,9 +26,14 @@ impl AudioBackend {
     pub fn load_sound(&self, name: &str) {
         let mut sounds = self.sounds.lock().unwrap();
         // get full path
-        let full_path = format!("base/snd/{}", name);
+        let full_path = format!("{}/snd/{}", BASE_DIR, name);
         // load sound
-        let sound = SoundBufferResource::new_generic(block_on(DataSource::from_file(&full_path)).unwrap()).expect("failed to load sound");
+        let sound = SoundBufferResource::new_generic(block_on(DataSource::from_file(&full_path)).unwrap());
+        if sound.is_err() {
+            error!("failed to load sound: {}", full_path);
+            return;
+        }
+        let sound = sound.unwrap();
         // insert into hashmap
         sounds.insert(name.to_string(), sound);
     }

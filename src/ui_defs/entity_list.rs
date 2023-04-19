@@ -3,7 +3,10 @@ use std::collections::hash_map::Entry;
 use egui_glfw_gl::egui;
 use egui_glfw_gl::egui::{AboveOrBelow, ScrollArea, Ui};
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::Ordering;
+use crate::ui::WANT_SAVE;
 use crate::worldmachine::{EntityId, WorldMachine};
+use crate::worldmachine::ecs::Entity;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EntityListWant {
@@ -15,12 +18,13 @@ pub enum EntityListWant {
 }
 
 lazy_static!{
-    static ref STATE: Arc<Mutex<EntityListState>> = Arc::new(Mutex::new(EntityListState::default()));
+    pub static ref STATE: Arc<Mutex<EntityListState>> = Arc::new(Mutex::new(EntityListState::default()));
 }
 
-struct EntityListState {
+pub struct EntityListState {
     pub entities: HashMap<EntityId, (bool, String)>,
-    pub eids: Vec<EntityId>,
+    eids: Vec<EntityId>,
+    entity_name_buffer: String,
 }
 
 impl Default for EntityListState {
@@ -28,6 +32,7 @@ impl Default for EntityListState {
         Self {
             entities: HashMap::new(),
             eids: vec![],
+            entity_name_buffer: "".to_string(),
         }
     }
 }
@@ -70,11 +75,13 @@ pub fn entity_list(ui: &mut Ui, wm: &mut WorldMachine, want: &mut EntityListWant
                 }
                 for eid in state.eids.clone().iter() {
                     if !found.contains(eid) {
+                        WANT_SAVE.store(true, Ordering::Relaxed);
                         state.entities.remove(eid);
                         state.eids.retain(|x| x != eid);
                     }
                 }
                 for eid in to_delete {
+                    WANT_SAVE.store(true, Ordering::Relaxed);
                     wm.world.entities.retain(|x| x.uid != eid);
                     state.entities.remove(&eid);
                     state.eids.retain(|x| x != &eid);
@@ -85,8 +92,19 @@ pub fn entity_list(ui: &mut Ui, wm: &mut WorldMachine, want: &mut EntityListWant
 
 pub fn add_entity(ui: &mut Ui, wm: &mut WorldMachine, want: &mut EntityListWant) {
     let entity_list = &mut wm.world.entities;
+    let mut state = STATE.lock().unwrap();
 
-    if ui.button("ok").clicked() {
-        *want = EntityListWant::Close;
-    }
+    ui.label("entity name");
+    let done = ui.text_edit_singleline(&mut state.entity_name_buffer).lost_focus();
+
+    ui.horizontal(|ui| {
+        if ui.button("ok").clicked() || (done && !state.entity_name_buffer.is_empty()) {
+            WANT_SAVE.store(true, Ordering::Relaxed);
+            let entity = Entity::new( &state.entity_name_buffer.clone());
+            entity_list.push(entity);
+
+            state.entity_name_buffer.clear();
+            * want = EntityListWant::Close;
+        }
+    });
 }

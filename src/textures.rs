@@ -187,7 +187,7 @@ impl Texture {
         let name_clone = name.to_string();
 
         thread::spawn(move || {
-            let base_file_name = format!("base/textures/{}/{}_", name_clone, name_clone);
+            let base_file_name = format!("{}/textures/{}/{}_", BASE_DIR, name_clone, name_clone);
             // substance painter file names
             let diffuse_file_name = base_file_name.clone() + "diff.png";
             let normal_file_name = base_file_name.clone() + "normal.png";

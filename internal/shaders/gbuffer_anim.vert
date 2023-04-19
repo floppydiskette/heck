@@ -39,7 +39,7 @@ void main()
             if (a_joint[i] >= MAX_BONES) {
                 total_position = vec4(in_pos, 1.0f);
                 total_normal = in_normal;
-                break;
+                 break;
             }
             vec4 local_pos = joint_matrix[a_joint[i]] * vec4(in_pos, 1.0f);
             total_position += local_pos * a_weight[i];

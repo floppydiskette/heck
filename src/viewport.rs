@@ -102,8 +102,9 @@ impl Viewport {
     }
 
     fn handle_keyboard_movement(&mut self, renderer: &mut ht_renderer, delta_time: f32) {
+
         pub const DEFAULT_MOVESPEED: f32 = 1.15;
-        pub const DEFAULT_SPRINTSPEED: f32 = 7.4;
+        pub const DEFAULT_SPRINTSPEED: f32 = 17.4;
         pub const DEFAULT_FOV: f32 = 120.0;
         pub const SPRINT_FOV: f32 = 140.0;
         let mut movement = Vec3::new(0.0, 0.0, 0.0);
@@ -163,6 +164,9 @@ impl Viewport {
         movement = helpers::clamp_magnitude(movement, 1.0);
 
         movement *= self.movement_speed;
+        if !self.has_camera_control {
+            return;
+        }
 
 
         self.set_position(camera.get_position() + movement * delta_time);

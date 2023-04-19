@@ -112,7 +112,7 @@ async fn main() {
             renderer.next_light();
         }
 
-        renderer.swap_buffers(&mut worldmachine);
+        renderer.swap_buffers(&mut worldmachine, delta);
         renderer.backend.window.lock().unwrap().glfw.poll_events();
         keyboard::reset_keyboard_state();
         mouse::reset_mouse_state();

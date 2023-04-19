@@ -2,7 +2,7 @@
 
 in vec2 uv;
 
-out vec4 o_colour;
+layout(location = 0) out vec4 o_colour;
 
 uniform sampler2D u_texture;
 

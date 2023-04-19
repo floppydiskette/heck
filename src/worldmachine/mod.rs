@@ -14,7 +14,7 @@ use crate::animgraph::{AnimGraph, AnimGraphNode};
 use crate::audio::AudioBackend;
 use crate::common_anim::move_anim::{Features, MoveAnim};
 use crate::helpers::{add_quaternion, from_q64, multiply_quaternion, rotate_vector_by_quaternion, to_q64};
-use crate::worldmachine::components::{COMPONENT_TYPE_BOX_COLLIDER, COMPONENT_TYPE_JUKEBOX, COMPONENT_TYPE_LIGHT, COMPONENT_TYPE_MESH_RENDERER, COMPONENT_TYPE_PLAYER, COMPONENT_TYPE_TERRAIN, COMPONENT_TYPE_TRANSFORM, COMPONENT_TYPE_TRIGGER, Light, MeshRenderer, Terrain, Transform};
+use crate::worldmachine::components::{COMPONENT_TYPE_BOX_COLLIDER, COMPONENT_TYPE_JUKEBOX, COMPONENT_TYPE_LIGHT, COMPONENT_TYPE_MESH_RENDERER, COMPONENT_TYPE_PLAYER, COMPONENT_TYPE_TERRAIN, COMPONENT_TYPE_TRANSFORM, COMPONENT_TYPE_TRIGGER, Light, MeshRenderer, Transform};
 use crate::worldmachine::ecs::*;
 use crate::worldmachine::MapLoadError::FolderNotFound;
 
@@ -22,6 +22,7 @@ pub mod ecs;
 pub mod components;
 pub mod entities;
 pub mod helpers;
+pub mod savestates;
 
 pub type EntityId = u64;
 
@@ -66,6 +67,7 @@ pub struct WorldMachine {
     pub game_data_path: String,
     pub counter: f32,
     pub entities_wanting_to_load_things: Vec<usize>,
+    pub selected_entity: Option<EntityId>,
     // index
     lights_changed: bool,
     current_map: String,
@@ -83,6 +85,7 @@ impl Default for WorldMachine {
             game_data_path: String::from(""),
             counter: 0.0,
             entities_wanting_to_load_things: Vec::new(),
+            selected_entity: None,
             lights_changed: true,
             current_map: "".to_string(),
         }
@@ -358,6 +361,13 @@ impl WorldMachine {
                     };
                     // if so, render it
                     let mesh = renderer.meshes.get(&*mesh_name).cloned();
+                    if mesh.is_none() {
+                        let res = renderer.load_mesh_if_not_already_loaded(&mesh_name);
+                        if res.is_err() {
+                            error!("render: failed to load mesh '{}': {:?}", mesh_name, res);
+                        }
+                        continue;
+                    }
                     if let Some(mut mesh) = mesh {
                         let texture = mesh_renderer.get_parameter("texture").unwrap();
                         let texture_name = match texture.value {
@@ -369,7 +379,10 @@ impl WorldMachine {
                         };
                         let texture = renderer.textures.get(&*texture_name).cloned();
                         if texture.is_none() {
-                            error!("texture not found: {:?}", texture_name);
+                            let res = renderer.load_texture_if_not_already_loaded(&texture_name);
+                            if res.is_err() {
+                                error!("render: failed to load texture '{}': {:?}", texture_name, res);
+                            }
                             continue;
                         }
                         let texture = texture.unwrap();
@@ -422,7 +435,14 @@ impl WorldMachine {
                             anim_weights = Some(move_anim.weights());
                         }
 
-                        mesh.render(renderer, Some(&texture), anim_weights, shadow_pass);
+                        mesh.render(renderer, Some(&texture), anim_weights.clone(), shadow_pass);
+
+                        if let Some(viz) = self.selected_entity {
+                            if viz == entity.uid {
+                                mesh.render_viz(renderer, Some(&texture), anim_weights, shadow_pass);
+                            }
+                        }
+
                         mesh.position = old_position;
                         mesh.rotation = old_rotation;
                         mesh.scale = old_scale;
@@ -433,104 +453,125 @@ impl WorldMachine {
                     }
                 }
             }
-            /*if let Some(terrain) = entity.get_component(COMPONENT_TYPE_TERRAIN.clone()) {
-                if let Some(name) = terrain.get_parameter("name") {
-                    // get the string value of the mesh
-                    let name = match name.value {
-                        ParameterValue::String(ref s) => s.clone(),
-                        _ => {
-                            error!("render: terrain name is not a string");
-                            continue;
-                        }
-                    };
-                    // if so, render it
-                    let terrains = renderer.terrains.clone().unwrap();
-                    let terrain = terrains.get(&*name);
-                    if let Some(terrain) = terrain {
-                        let mut terrain = terrain.clone();
+            if let Some(light) = entity.get_component(COMPONENT_TYPE_LIGHT.clone()) {
+                if let Some(viz) = self.selected_entity {
+                    if viz == entity.uid {
+                        let mut mesh = renderer.meshes.get("boxviz").cloned().unwrap();
+                        // if this entity has a transform, apply it
                         if let Some(transform) = entity.get_component(COMPONENT_TYPE_TRANSFORM.clone()) {
-                            let position = transform.get_parameter("position").unwrap();
-                            let position = match position.value {
-                                ParameterValue::Vec3(v) => v,
-                                _ => {
-                                    error!("render: transform position is not a vec3");
-                                    continue;
-                                }
-                            };
-                            let rotation = transform.get_parameter("rotation").unwrap();
-                            let rotation = match rotation.value {
-                                ParameterValue::Quaternion(v) => v,
-                                _ => {
-                                    error!("render: transform rotation is not a quaternion");
-                                    continue;
-                                }
-                            };
-                            let scale = transform.get_parameter("scale").unwrap();
-                            let scale = match scale.value {
-                                ParameterValue::Vec3(v) => v,
-                                _ => {
-                                    error!("render: transform scale is not a vec3");
-                                    continue;
-                                }
-                            };
-                            terrain.mesh.position += position;
-                            terrain.mesh.rotation = rotation;
-                            terrain.mesh.scale += scale;
+                            if let Some(position) = transform.get_parameter("position") {
+                                let position = match position.value {
+                                    ParameterValue::Vec3(v) => v,
+                                    _ => {
+                                        error!("render: transform position is not a vec3");
+                                        continue;
+                                    }
+                                };
+                                mesh.position += position;
+                            }
+                            if let Some(rotation) = transform.get_parameter("rotation") {
+                                let rotation = match rotation.value {
+                                    ParameterValue::Quaternion(v) => v,
+                                    _ => {
+                                        error!("render: transform rotation is not a quaternion");
+                                        continue;
+                                    }
+                                };
+                                // add a bit of rotation to the transform to make things more interesting
+                                mesh.rotation = rotation;
+                            }
+                            if let Some(scale) = transform.get_parameter("scale") {
+                                let scale = match scale.value {
+                                    ParameterValue::Vec3(v) => v,
+                                    _ => {
+                                        error!("render: transform scale is not a vec3");
+                                        continue;
+                                    }
+                                };
+                                mesh.scale += scale;
+                            }
                         }
-                        terrain.render(renderer);
+
+                        mesh.position += match light.get_parameter("position").unwrap().value {
+                            ParameterValue::Vec3(v) => v,
+                            _ => {
+                                error!("render: light position is not a vec3");
+                                continue;
+                            }
+                        };
+
+                        mesh.scale += Vec3::new(0.1, 0.1, 0.1);
+
+                        mesh.render_viz(renderer, None, None, shadow_pass);
                     }
                 }
             }
-             */
-            if let Some(player_component) = entity.get_component(COMPONENT_TYPE_PLAYER.clone()) {
-                let position = player_component.get_parameter("position").unwrap();
-                let position = match position.value {
-                    ParameterValue::Vec3(v) => v,
-                    _ => {
-                        error!("render: player position is not a vec3");
-                        continue;
-                    }
-                };
-                let rotation = player_component.get_parameter("rotation").unwrap();
-                let rotation = match rotation.value {
-                    ParameterValue::Quaternion(v) => v,
-                    _ => {
-                        error!("render: player rotation is not a quaternion");
-                        continue;
-                    }
-                };
-                let speed = player_component.get_parameter("speed").unwrap();
-                let speed = match speed.value {
-                    ParameterValue::Float(v) => v,
-                    _ => {
-                        error!("render: player speed is not a float");
-                        continue;
-                    }
-                };
-                let strafe = player_component.get_parameter("strafe").unwrap();
-                let strafe = match strafe.value {
-                    ParameterValue::Float(v) => v,
-                    _ => {
-                        error!("render: player strafe is not a float");
-                        continue;
-                    }
-                };
-                if let Some(mesh) = renderer.meshes.get("player").cloned() {
-                    let texture = renderer.textures.get("default").cloned().unwrap();
-                    let mut mesh = mesh.clone();
-                    let old_position = mesh.position;
-                    let old_rotation = mesh.rotation;
-                    mesh.position = position + Vec3::new(0.0, -1.5, 0.0);
-                    mesh.rotation = rotation;
-                    mesh.scale = Vec3::new(1.0, 1.0, 1.0);
 
-                    let move_anim = MoveAnim::from_values(speed, strafe);
+            if let Some(boxcollider) = entity.get_component(COMPONENT_TYPE_BOX_COLLIDER.clone()) {
+                if let Some(viz) = self.selected_entity {
+                    if viz == entity.uid || {
+                        match boxcollider.get_parameter("visualise") {
+                            Some(p) => match p.value {
+                                ParameterValue::Bool(b) => b,
+                                _ => false,
+                            },
+                            None => false,
+                        }
+                    } {
+                        let mut mesh = renderer.meshes.get("boxviz").cloned().unwrap();
+                        // if this entity has a transform, apply it
+                        if let Some(transform) = entity.get_component(COMPONENT_TYPE_TRANSFORM.clone()) {
+                            if let Some(position) = transform.get_parameter("position") {
+                                let position = match position.value {
+                                    ParameterValue::Vec3(v) => v,
+                                    _ => {
+                                        error!("render: transform position is not a vec3");
+                                        continue;
+                                    }
+                                };
+                                mesh.position += position;
+                            }
+                            if let Some(rotation) = transform.get_parameter("rotation") {
+                                let rotation = match rotation.value {
+                                    ParameterValue::Quaternion(v) => v,
+                                    _ => {
+                                        error!("render: transform rotation is not a quaternion");
+                                        continue;
+                                    }
+                                };
+                                // add a bit of rotation to the transform to make things more interesting
+                                mesh.rotation = rotation;
+                            }
+                            if let Some(scale) = transform.get_parameter("scale") {
+                                let scale = match scale.value {
+                                    ParameterValue::Vec3(v) => v,
+                                    _ => {
+                                        error!("render: transform scale is not a vec3");
+                                        continue;
+                                    }
+                                };
+                                mesh.scale += scale;
+                            }
+                        }
 
-                    mesh.render(renderer, Some(&texture), Some(move_anim.weights()), shadow_pass);
+                        mesh.position += match boxcollider.get_parameter("position").unwrap().value {
+                            ParameterValue::Vec3(v) => v,
+                            _ => {
+                                error!("render: box collider position is not a vec3");
+                                continue;
+                            }
+                        };
 
-                    mesh.position = old_position;
-                    mesh.rotation = old_rotation;
-                    *renderer.meshes.get_mut("player").unwrap() = mesh;
+                        mesh.scale += match boxcollider.get_parameter("scale").unwrap().value {
+                            ParameterValue::Vec3(v) => v,
+                            _ => {
+                                error!("render: box collider scale is not a vec3");
+                                continue;
+                            }
+                        };
+
+                        mesh.render_viz(renderer, None, None, shadow_pass);
+                    }
                 }
             }
         }
