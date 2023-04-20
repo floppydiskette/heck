@@ -520,6 +520,23 @@ impl WorldMachine {
                         }
                     } {
                         let mut mesh = renderer.meshes.get("boxviz").cloned().unwrap();
+
+                        mesh.position = match boxcollider.get_parameter("position").unwrap().value {
+                            ParameterValue::Vec3(v) => v,
+                            _ => {
+                                error!("render: box collider position is not a vec3");
+                                continue;
+                            }
+                        };
+
+                        mesh.scale = match boxcollider.get_parameter("scale").unwrap().value {
+                            ParameterValue::Vec3(v) => v,
+                            _ => {
+                                error!("render: box collider scale is not a vec3");
+                                continue;
+                            }
+                        };
+
                         // if this entity has a transform, apply it
                         if let Some(transform) = entity.get_component(COMPONENT_TYPE_TRANSFORM.clone()) {
                             if let Some(position) = transform.get_parameter("position") {
@@ -555,25 +572,10 @@ impl WorldMachine {
                             }
                         }
 
-                        mesh.position += match boxcollider.get_parameter("position").unwrap().value {
-                            ParameterValue::Vec3(v) => v,
-                            _ => {
-                                error!("render: box collider position is not a vec3");
-                                continue;
-                            }
-                        };
-
-                        mesh.scale += match boxcollider.get_parameter("scale").unwrap().value {
-                            ParameterValue::Vec3(v) => v,
-                            _ => {
-                                error!("render: box collider scale is not a vec3");
-                                continue;
-                            }
-                        };
-
                         // move the position back by scale to account for how physics works
-                        mesh.position.x -= mesh.scale.x / 4.0;
-                        mesh.position.z += mesh.scale.z / 4.0;
+                        mesh.position.x -= mesh.scale.x / 2.0;
+                        mesh.position.y -= mesh.scale.y;
+                        mesh.position.z -= -mesh.scale.z / 2.0;
 
                         mesh.render_viz(renderer, None, None, shadow_pass, 2);
                     }
